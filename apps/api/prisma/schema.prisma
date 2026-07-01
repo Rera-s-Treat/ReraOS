@@ -1,0 +1,142 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===========================
+// ENUMS
+// ===========================
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+}
+
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  LOGIN_FAILED
+  PASSWORD_CHANGED
+  PASSWORD_RESET
+  USER_CREATED
+  USER_UPDATED
+  USER_DELETED
+}
+
+// ===========================
+// MODELS
+// ===========================
+
+model User {
+  id                     String      @id @default(uuid())
+  email                  String      @unique
+  passwordHash           String
+
+  firstName              String
+  lastName               String
+  phone                  String?
+
+  status                 UserStatus  @default(ACTIVE)
+
+  emailVerified          Boolean     @default(false)
+
+  failedLoginAttempts    Int         @default(0)
+  lockedUntil            DateTime?
+
+  lastLoginAt            DateTime?
+
+  roleId                 String
+  role                   Role        @relation(fields: [roleId], references: [id])
+
+  refreshTokens          RefreshToken[]
+  passwordHistory        PasswordHistory[]
+  auditLogs              AuditLog[]
+
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
+
+  @@index([email])
+}
+
+model Role {
+  id              String              @id @default(uuid())
+  name            String              @unique
+  description     String?
+
+  users           User[]
+
+  permissions     RolePermission[]
+
+  createdAt       DateTime            @default(now())
+}
+
+model Permission {
+  id              String              @id @default(uuid())
+  name            String              @unique
+  description     String?
+
+  roles           RolePermission[]
+
+  createdAt       DateTime            @default(now())
+}
+
+model RolePermission {
+  id              String              @id @default(uuid())
+
+  roleId          String
+  permissionId    String
+
+  role            Role                @relation(fields: [roleId], references: [id])
+  permission      Permission          @relation(fields: [permissionId], references: [id])
+
+  @@unique([roleId, permissionId])
+}
+
+model RefreshToken {
+  id              String      @id @default(uuid())
+
+  tokenHash       String
+
+  expiresAt       DateTime
+  revokedAt       DateTime?
+
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime    @default(now())
+}
+
+model PasswordHistory {
+  id              String      @id @default(uuid())
+
+  passwordHash    String
+
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime    @default(now())
+}
+
+model AuditLog {
+  id              String          @id @default(uuid())
+
+  action          AuditAction
+
+  description     String?
+
+  ipAddress       String?
+
+  userAgent       String?
+
+  userId          String?
+  user            User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt       DateTime        @default(now())
+
+  @@index([action])
+}

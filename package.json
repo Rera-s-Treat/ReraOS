@@ -1,0 +1,21 @@
+{
+  "name": "ReraOS",
+  "private": true,
+  "scripts": {
+    "build": "pnpm --dir apps/api run build && pnpm --dir apps/admin-web run build",
+    "prisma:seed": "tsx prisma/seed.ts",
+    "dev": "node scripts/dev.mjs",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "check-types": "turbo run check-types"
+  },
+  "devDependencies": {
+    "prettier": "^3.7.4",
+    "turbo": "^2.10.0",
+    "typescript": "5.9.2"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=18"
+  }
+}
