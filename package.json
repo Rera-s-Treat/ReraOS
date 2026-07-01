@@ -17,5 +17,10 @@
   "packageManager": "pnpm@9.0.0",
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "@nestjs/passport": "^11.0.1",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1"
   }
 }

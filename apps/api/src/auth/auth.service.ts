@@ -53,11 +53,7 @@ export class AuthService {
       lastName,
       email,
       phone,
-      role: {
-        connect: {
-          id: roleId,
-        },
-      },
+      roleId,
       passwordHash: hashedPassword,
     });
 
@@ -114,7 +110,7 @@ export class AuthService {
     };
   }
 
-  generateAccessToken(user: {
+  private generateAccessToken(user: {
     id: string;
     email: string;
     roleId: string;

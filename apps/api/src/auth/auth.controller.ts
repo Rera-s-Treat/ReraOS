@@ -7,10 +7,12 @@ import {
   UseGuards,
   ValidationPipe,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { ApiBearerAuth } from '@nestjs/swagger';
+
 import { LoginDto } from '../dto/login.dto';
 import { RegisterDto } from '../dto/register.dto';
 import { AuthService } from './auth.service';
+import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -23,8 +25,8 @@ export class AuthController {
    * KITCHEN
    */
   @Post('login')
-  async login(@Body(new ValidationPipe()) body: LoginDto) {
-    return this.authService.login(body.email, body.password);
+  async login(@Body(new ValidationPipe()) loginDto: LoginDto) {
+    return this.authService.login(loginDto.email, loginDto.password);
   }
 
   @Post('register')
@@ -35,8 +37,9 @@ export class AuthController {
   /**
    * Logged-in User Profile
    */
-  @UseGuards(AuthGuard('jwt'))
-  @Get('profile')
+  @ApiBearerAuth('bearer')
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
   getProfile(@Req() req: { user: unknown }) {
     return req.user;
   }
@@ -48,7 +51,8 @@ export class AuthController {
    * return success. The frontend removes
    * the stored access token.
    */
-  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth('bearer')
+  @UseGuards(JwtAuthGuard)
   @Post('logout')
   logout() {
     return {

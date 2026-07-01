@@ -1,70 +1,103 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
-type HealthResponse = {
-  status: string;
-  service: string;
-  timestamp: string;
-};
+import api from '@/lib/api';
 
-export default function Home() {
-  const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+export default function HomePage() {
+  const router = useRouter();
 
-  useEffect(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/health';
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-    fetch(apiUrl)
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error(`Request failed with ${res.status}`);
-        }
-        return res.json();
-      })
-      .then((data) => {
-        setHealth(data);
-        setError(null);
-      })
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      })
-      .finally(() => {
-        setLoading(false);
+  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await api.post('/auth/login', {
+        email,
+        password,
       });
-  }, []);
+
+      localStorage.setItem('accessToken', response.data.accessToken);
+
+      router.push('/dashboard');
+    } catch {
+      setError('Invalid email or password.');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-zinc-50 px-6 py-16 text-zinc-900 dark:bg-black dark:text-zinc-100">
-      <div className="w-full max-w-2xl rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
-          ReraOS admin
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold">Connected to the Nest API</h1>
-        <p className="mt-3 text-base text-zinc-600 dark:text-zinc-400">
-          This page calls the backend health endpoint and displays its response.
-        </p>
-
-        <div className="mt-8 rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
-          {loading && <p className="text-sm text-zinc-500">Loading API status...</p>}
-          {!loading && health && (
-            <div className="space-y-2 text-sm">
-              <p>
-                <span className="font-medium">Status:</span> {health.status}
-              </p>
-              <p>
-                <span className="font-medium">Service:</span> {health.service}
-              </p>
-              <p>
-                <span className="font-medium">Timestamp:</span> {health.timestamp}
-              </p>
-            </div>
-          )}
-          {!loading && error && (
-            <p className="text-sm text-red-500">Unable to reach the API: {error}</p>
-          )}
+    <main className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
+      <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-lg">
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl font-bold text-gray-900">ReraOS</h1>
+          <p className="mt-2 text-sm text-gray-500">
+            Sign in to continue
+          </p>
         </div>
+
+        <form onSubmit={handleLogin} className="space-y-5">
+          <div>
+            <label
+              htmlFor="email"
+              className="mb-2 block text-sm font-medium text-gray-700"
+            >
+              Email
+            </label>
+
+            <input
+              id="email"
+              type="email"
+              placeholder="admin@reraos.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-md border border-gray-300 px-4 py-3 outline-none transition focus:border-black"
+              required
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="password"
+              className="mb-2 block text-sm font-medium text-gray-700"
+            >
+              Password
+            </label>
+
+            <input
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-md border border-gray-300 px-4 py-3 outline-none transition focus:border-black"
+              required
+            />
+          </div>
+
+          {error && (
+            <p className="text-sm text-red-600">
+              {error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-md bg-black py-3 font-medium text-white transition hover:opacity-90 disabled:opacity-60"
+          >
+            {loading ? 'Signing In...' : 'Sign In'}
+          </button>
+        </form>
       </div>
     </main>
   );
