@@ -15,6 +15,15 @@ export class AuthRepository {
     });
   }
 
+  async findUserById(id: string) {
+    return this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        role: true,
+      },
+    });
+  }
+
   async createUser(data: {
     firstName: string;
     lastName: string;
@@ -28,45 +37,151 @@ export class AuthRepository {
     });
   }
 
-  async createAuditLog(userId: string) {
-    return this.prisma.auditLog.create({
-      data: {
-        userId,
-        action: AuditAction.USER_CREATED,
+  async findUserByPasswordResetToken(token: string) {
+    return this.prisma.user.findFirst({
+      where: {
+        passwordResetToken: token,
       },
-    });
-  }
-
-  async logSuccessfulLogin(userId: string) {
-    return this.prisma.auditLog.create({
-      data: {
-        userId,
-        action: AuditAction.LOGIN,
+      include: {
+        role: true,
       },
     });
   }
 
   async updateLastLogin(userId: string) {
     return this.prisma.user.update({
-      where: {
-        id: userId,
-      },
+      where: { id: userId },
       data: {
         lastLoginAt: new Date(),
-        failedLoginAttempts: 0,
       },
     });
   }
 
-  async incrementFailedLogin(email: string) {
+  async incrementFailedLoginAttempts(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        failedLoginAttempts: true,
+      },
+    });
+
+    const failedAttempts = (user?.failedLoginAttempts ?? 0) + 1;
+    const shouldLock = failedAttempts >= 5;
+
     return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        failedLoginAttempts: failedAttempts,
+        lockedUntil: shouldLock
+          ? new Date(Date.now() + 15 * 60 * 1000)
+          : null,
+      },
+    });
+  }
+
+  async resetFailedLoginAttempts(userId: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      },
+    });
+  }
+
+  async createRefreshToken(data: {
+    userId: string;
+    tokenHash: string;
+    expiresAt: Date;
+  }) {
+    return this.prisma.refreshToken.create({
+      data,
+    });
+  }
+
+  async revokeRefreshToken(tokenHash: string) {
+    return this.prisma.refreshToken.updateMany({
       where: {
-        email,
+        tokenHash,
+        revokedAt: null,
       },
       data: {
-        failedLoginAttempts: {
-          increment: 1,
+        revokedAt: new Date(),
+      },
+    });
+  }
+
+  async findRefreshToken(tokenHash: string) {
+    return this.prisma.refreshToken.findFirst({
+      where: {
+        tokenHash,
+        revokedAt: null,
+      },
+      include: {
+        user: {
+          include: {
+            role: true,
+          },
         },
+      },
+    });
+  }
+
+  async addPasswordHistory(userId: string, passwordHash: string) {
+    return this.prisma.passwordHistory.create({
+      data: {
+        userId,
+        passwordHash,
+      },
+    });
+  }
+
+  async getPasswordHistory(userId: string) {
+    return this.prisma.passwordHistory.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    });
+  }
+
+  async logAudit(data: {
+    action: AuditAction;
+    userId?: string;
+    description?: string;
+    ipAddress?: string;
+    userAgent?: string;
+  }) {
+    return this.prisma.auditLog.create({
+      data,
+    });
+  }
+
+  async setPasswordResetToken(
+    userId: string,
+    passwordResetToken: string,
+    passwordResetExpiresAt: Date,
+  ) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordResetToken,
+        passwordResetExpiresAt,
+      },
+    });
+  }
+
+  async updatePasswordAndClearResetToken(
+    userId: string,
+    passwordHash: string,
+  ) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash,
+        passwordResetToken: null,
+        passwordResetExpiresAt: null,
+        failedLoginAttempts: 0,
+        lockedUntil: null,
       },
     });
   }

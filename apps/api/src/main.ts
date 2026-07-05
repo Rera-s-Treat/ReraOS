@@ -1,10 +1,17 @@
+import * as fs from 'fs';
+import { join } from 'path';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  const uploadsDir = join(process.cwd(), 'uploads', 'products');
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -14,8 +21,13 @@ async function bootstrap() {
     }),
   );
 
+  const defaultOrigins = ['http://localhost:3000', 'http://127.0.0.1:3000'];
+  const configuredOrigins = process.env.CORS_ORIGIN?.split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
   app.enableCors({
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+    origin: configuredOrigins?.length ? configuredOrigins : defaultOrigins,
     credentials: true,
   });
 

@@ -5,6 +5,8 @@
     "build": "pnpm --dir apps/api run build && pnpm --dir apps/admin-web run build",
     "prisma:seed": "tsx prisma/seed.ts",
     "dev": "node scripts/dev.mjs",
+    "env:staging": "node scripts/use-env.mjs staging",
+    "env:development": "node scripts/use-env.mjs development",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types"

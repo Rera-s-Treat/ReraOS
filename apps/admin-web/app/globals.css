@@ -2,25 +2,36 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #1a1a1a;
+
+  --color-treat-orange: #e8621a;
+  --color-garden-green: #1c4a1c;
+  --color-warm-peach: #f5a07a;
+  --color-leaf-green: #7ec87e;
+  --color-cream: #fdf8f2;
+  --color-rich-black: #1a1a1a;
+  --color-pale-orange: #f9ede3;
+  --color-pale-green: #e8f0e8;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --font-sans: var(--font-jost);
+  --font-serif: var(--font-cormorant);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-brand-orange: var(--color-treat-orange);
+  --color-brand-green: var(--color-garden-green);
+  --color-brand-peach: var(--color-warm-peach);
+  --color-brand-leaf: var(--color-leaf-green);
+  --color-brand-cream: var(--color-cream);
+  --color-brand-black: var(--color-rich-black);
+  --color-brand-pale-orange: var(--color-pale-orange);
+  --color-brand-pale-green: var(--color-pale-green);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-jost), Arial, Helvetica, sans-serif;
 }

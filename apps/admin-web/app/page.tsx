@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
-import api from '@/lib/api';
+import { login } from '@/lib/api';
+import { Logo } from '../components/brand/Logo';
 
 export default function HomePage() {
   const router = useRouter();
@@ -20,15 +22,17 @@ export default function HomePage() {
     setLoading(true);
 
     try {
-      const response = await api.post('/auth/login', {
+      const response = await login({
         email,
         password,
       });
 
-      localStorage.setItem('accessToken', response.data.accessToken);
+      localStorage.setItem('accessToken', response.accessToken);
+      localStorage.setItem('user', JSON.stringify(response.user));
 
       router.push('/dashboard');
-    } catch {
+    } catch (err) {
+      console.error('LOGIN ERROR:', err);
       setError('Invalid email or password.');
     } finally {
       setLoading(false);
@@ -36,13 +40,11 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
+    <main className="flex min-h-screen items-center justify-center bg-(--color-brand-cream) px-4">
       <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-lg">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-900">ReraOS</h1>
-          <p className="mt-2 text-sm text-gray-500">
-            Sign in to continue
-          </p>
+          <Logo className="mx-auto h-24" />
+          <p className="mt-2 text-sm text-gray-500">Sign in to continue</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-5">
@@ -60,18 +62,27 @@ export default function HomePage() {
               placeholder="admin@reraos.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-4 py-3 outline-none transition focus:border-black"
+              className="w-full rounded-md border border-gray-300 px-4 py-3 outline-none transition focus:border-(--color-brand-orange)"
               required
             />
           </div>
 
           <div>
-            <label
-              htmlFor="password"
-              className="mb-2 block text-sm font-medium text-gray-700"
-            >
-              Password
-            </label>
+            <div className="mb-2 flex items-center justify-between">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Password
+              </label>
+
+              <Link
+                href="/forgot-password"
+                className="text-sm font-medium text-gray-500 hover:text-(--color-brand-orange)"
+              >
+                Forgot password?
+              </Link>
+            </div>
 
             <input
               id="password"
@@ -79,21 +90,17 @@ export default function HomePage() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-4 py-3 outline-none transition focus:border-black"
+              className="w-full rounded-md border border-gray-300 px-4 py-3 outline-none transition focus:border-(--color-brand-orange)"
               required
             />
           </div>
 
-          {error && (
-            <p className="text-sm text-red-600">
-              {error}
-            </p>
-          )}
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-md bg-black py-3 font-medium text-white transition hover:opacity-90 disabled:opacity-60"
+            className="w-full rounded-md bg-(--color-brand-orange) py-3 font-medium text-white transition hover:opacity-90 disabled:opacity-60"
           >
             {loading ? 'Signing In...' : 'Sign In'}
           </button>
