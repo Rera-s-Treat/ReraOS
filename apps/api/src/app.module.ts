@@ -6,6 +6,7 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 import { ProductsModule } from './modules/products/products.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { WhatsappSessionsModule } from './modules/whatsapp/whatsapp-sessions.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { WhatsappSessionsModule } from './modules/whatsapp/whatsapp-sessions.mod
     ProductsModule,
     OrdersModule,
     WhatsappSessionsModule,
+    DashboardModule,
   ],
 })
 export class AppModule {}

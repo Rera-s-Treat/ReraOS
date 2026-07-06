@@ -60,14 +60,14 @@ function assertValidTransition<T extends string>(
   }
 }
 
-interface OrderLike {
+export interface OrderLike {
   paymentStatus: PaymentStatus;
   kitchenStatus: KitchenStatus;
   fulfillmentStatus: FulfillmentStatus;
   orderType: string;
 }
 
-function computeUnifiedStatus(order: OrderLike): string {
+export function computeUnifiedStatus(order: OrderLike): string {
   if (order.fulfillmentStatus === FulfillmentStatus.CANCELLED) {
     return 'Cancelled';
   }
