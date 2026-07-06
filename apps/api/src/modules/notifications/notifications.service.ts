@@ -8,6 +8,9 @@ const STAFF_WHATSAPP_NUMBER =
 const STAFF_EMAIL =
   process.env.STAFF_NOTIFICATION_EMAIL || 'rerastreat@gmail.com';
 
+const SENDCHAMP_API_URL = 'https://api.sendchamp.com/api/v1/whatsapp/message/send';
+const SENDCHAMP_SHARED_SENDER = '2348120678278';
+
 export type WhatsappMessageType =
   | 'confirmation'
   | 'payment-instruction'
@@ -21,6 +24,12 @@ interface NotifiableOrder {
   channel: string;
   totalAmount: unknown;
   items: Array<{ quantity: number; product: { name: string } }>;
+}
+
+interface WhatsappTemplateVariables {
+  '1': string;
+  '2': string;
+  '3': string;
 }
 
 function normalizeNigerianPhoneNumber(phone: string): string {
@@ -49,9 +58,7 @@ export class NotificationsService {
   }
 
   private get isWhatsAppConfigured(): boolean {
-    return Boolean(
-      process.env.WHATSAPP_API_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID,
-    );
+    return Boolean(process.env.SENDCHAMP_API_KEY && process.env.SENDCHAMP_TEMPLATE_CODE);
   }
 
   async sendEmail(to: string, subject: string, text: string): Promise<void> {
@@ -84,39 +91,38 @@ export class NotificationsService {
     }
   }
 
-  async sendWhatsApp(to: string, message: string): Promise<void> {
+  async sendWhatsApp(
+    to: string,
+    variables: WhatsappTemplateVariables,
+  ): Promise<void> {
     if (!this.isWhatsAppConfigured) {
       this.logger.warn(
-        `[WhatsApp skipped - no API credentials configured] To: ${to} | Message: ${message}`,
+        `[WhatsApp skipped - no Sendchamp credentials configured] To: ${to} | Variables: ${JSON.stringify(variables)}`,
       );
       return;
     }
 
     try {
-      const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-      const token = process.env.WHATSAPP_API_TOKEN;
-
-      const response = await fetch(
-        `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            to: normalizeNigerianPhoneNumber(to),
-            type: 'text',
-            text: { body: message },
-          }),
+      const response = await fetch(SENDCHAMP_API_URL, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.SENDCHAMP_API_KEY}`,
+          'Content-Type': 'application/json',
         },
-      );
+        body: JSON.stringify({
+          type: 'template',
+          template_code: process.env.SENDCHAMP_TEMPLATE_CODE,
+          sender: process.env.SENDCHAMP_SENDER || SENDCHAMP_SHARED_SENDER,
+          recipient: normalizeNigerianPhoneNumber(to),
+          custom_data: { body: variables },
+        }),
+      });
+
+      const responseBody = await response.text();
 
       if (!response.ok) {
-        const errorBody = await response.text();
         this.logger.error(
-          `WhatsApp send to ${to} failed: ${response.status} ${errorBody}`,
+          `WhatsApp send to ${to} failed: ${response.status} ${responseBody}`,
         );
       }
     } catch (error) {
@@ -138,10 +144,11 @@ export class NotificationsService {
     await this.sendEmail(STAFF_EMAIL, `New Order — ${order.orderNumber}`, emailBody);
 
     if (order.channel === 'WHATSAPP') {
-      await this.sendWhatsApp(
-        STAFF_WHATSAPP_NUMBER,
-        `New WhatsApp order ${order.orderNumber} from ${order.customerName} (${order.customerPhone}). Items: ${itemsSummary}. Total: ${formatNaira(order.totalAmount)}.`,
-      );
+      await this.sendWhatsApp(STAFF_WHATSAPP_NUMBER, {
+        '1': order.customerName,
+        '2': order.orderNumber,
+        '3': `New order! Items: ${itemsSummary}. Total: ${formatNaira(order.totalAmount)}.`,
+      });
     }
   }
 
@@ -150,25 +157,27 @@ export class NotificationsService {
     type: WhatsappMessageType,
     customMessage?: string,
   ): Promise<void> {
-    let message: string;
+    let detail: string;
 
     switch (type) {
       case 'confirmation':
-        message = `Hi ${order.customerName}, your order ${order.orderNumber} has been confirmed! We'll let you know as soon as it's ready.`;
+        detail = "Your order has been confirmed! We'll let you know as soon as it's ready.";
         break;
       case 'payment-instruction':
-        message = `Hi ${order.customerName}, please pay ${formatNaira(order.totalAmount)} for order ${order.orderNumber} to ${PAYMENT_ACCOUNT.accountName}, ${PAYMENT_ACCOUNT.accountNumber} (${PAYMENT_ACCOUNT.bankName}). Reply once you've made the payment.`;
+        detail = `Please pay ${formatNaira(order.totalAmount)} to ${PAYMENT_ACCOUNT.accountName}, ${PAYMENT_ACCOUNT.accountNumber} (${PAYMENT_ACCOUNT.bankName}). Reply once you've made the payment.`;
         break;
       case 'ready':
-        message = `Hi ${order.customerName}, your order ${order.orderNumber} is ready!`;
+        detail = 'Your order is ready!';
         break;
       case 'update':
-        message =
-          customMessage ||
-          `Hi ${order.customerName}, there's an update on your order ${order.orderNumber}. Please contact us for details.`;
+        detail = customMessage || "There's an update on your order. Please contact us for details.";
         break;
     }
 
-    await this.sendWhatsApp(order.customerPhone, message);
+    await this.sendWhatsApp(order.customerPhone, {
+      '1': order.customerName,
+      '2': order.orderNumber,
+      '3': detail,
+    });
   }
 }
