@@ -5,7 +5,7 @@
     "buildCommand": "pnpm install --frozen-lockfile && pnpm --dir apps/api run build"
   },
   "deploy": {
-    "startCommand": "pnpm --dir apps/api exec prisma migrate deploy && pnpm --dir apps/api run start:prod",
+    "startCommand": "pnpm --dir apps/api exec prisma migrate deploy && pnpm --dir apps/api run prisma:seed && pnpm --dir apps/api run start:prod",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
   }
