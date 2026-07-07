@@ -1,0 +1,3 @@
+export const VIP_SPEND_THRESHOLD = 100_000;
+export const VIP_ORDER_THRESHOLD = 10;
+export const INACTIVE_DAYS_THRESHOLD = 30;

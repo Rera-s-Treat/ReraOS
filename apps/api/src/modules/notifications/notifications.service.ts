@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 
+import { normalizeNigerianPhoneNumber } from '../../common/phone';
 import { PAYMENT_ACCOUNT } from '../../common/payment-account';
 
 const STAFF_WHATSAPP_NUMBER =
@@ -30,13 +31,6 @@ interface WhatsappTemplateVariables {
   '1': string;
   '2': string;
   '3': string;
-}
-
-function normalizeNigerianPhoneNumber(phone: string): string {
-  const digits = phone.replace(/[^\d]/g, '');
-  if (digits.startsWith('234')) return digits;
-  if (digits.startsWith('0')) return `234${digits.slice(1)}`;
-  return digits;
 }
 
 function formatNaira(amount: unknown): string {
