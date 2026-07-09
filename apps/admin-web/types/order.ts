@@ -1,4 +1,4 @@
-export type OrderChannel = 'WHATSAPP' | 'MANUAL' | 'WALK_IN';
+export type OrderChannel = 'WHATSAPP' | 'MANUAL' | 'WALK_IN' | 'WEBSITE';
 export type OrderType = 'PICKUP' | 'DELIVERY' | 'DINE_IN';
 export type PaymentStatus =
   | 'PENDING_CONFIRMATION'

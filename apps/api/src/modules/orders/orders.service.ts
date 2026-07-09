@@ -316,7 +316,11 @@ export class OrdersService {
   async markPaymentClaimed(id: string) {
     await this.getOrderById(id);
 
-    return this.ordersRepository.markPaymentClaimed(id);
+    const order = await this.ordersRepository.markPaymentClaimed(id);
+
+    await this.notificationsService.notifyPaymentClaimed(order);
+
+    return order;
   }
 
   async sendWhatsAppNotification(
