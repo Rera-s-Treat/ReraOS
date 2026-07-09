@@ -9,8 +9,9 @@ const STAFF_WHATSAPP_NUMBER =
 const STAFF_EMAIL =
   process.env.STAFF_NOTIFICATION_EMAIL || 'rerastreat@gmail.com';
 
-const SENDCHAMP_API_URL = 'https://api.sendchamp.com/api/v1/whatsapp/message/send';
-const SENDCHAMP_SHARED_SENDER = '2348120678278';
+function twilioMessagesUrl(accountSid: string): string {
+  return `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+}
 
 export type WhatsappMessageType =
   | 'confirmation'
@@ -52,7 +53,12 @@ export class NotificationsService {
   }
 
   private get isWhatsAppConfigured(): boolean {
-    return Boolean(process.env.SENDCHAMP_API_KEY && process.env.SENDCHAMP_TEMPLATE_CODE);
+    return Boolean(
+      process.env.TWILIO_ACCOUNT_SID &&
+        process.env.TWILIO_AUTH_TOKEN &&
+        process.env.TWILIO_WHATSAPP_FROM &&
+        process.env.TWILIO_CONTENT_SID,
+    );
   }
 
   async sendEmail(to: string, subject: string, text: string): Promise<void> {
@@ -91,25 +97,30 @@ export class NotificationsService {
   ): Promise<void> {
     if (!this.isWhatsAppConfigured) {
       this.logger.warn(
-        `[WhatsApp skipped - no Sendchamp credentials configured] To: ${to} | Variables: ${JSON.stringify(variables)}`,
+        `[WhatsApp skipped - no Twilio credentials configured] To: ${to} | Variables: ${JSON.stringify(variables)}`,
       );
       return;
     }
 
     try {
-      const response = await fetch(SENDCHAMP_API_URL, {
+      const accountSid = process.env.TWILIO_ACCOUNT_SID!;
+      const authToken = process.env.TWILIO_AUTH_TOKEN!;
+      const basicAuth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+
+      const body = new URLSearchParams({
+        To: `whatsapp:+${normalizeNigerianPhoneNumber(to)}`,
+        From: `whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`,
+        ContentSid: process.env.TWILIO_CONTENT_SID!,
+        ContentVariables: JSON.stringify(variables),
+      });
+
+      const response = await fetch(twilioMessagesUrl(accountSid), {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${process.env.SENDCHAMP_API_KEY}`,
-          'Content-Type': 'application/json',
+          Authorization: `Basic ${basicAuth}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: JSON.stringify({
-          type: 'template',
-          template_code: process.env.SENDCHAMP_TEMPLATE_CODE,
-          sender: process.env.SENDCHAMP_SENDER || SENDCHAMP_SHARED_SENDER,
-          recipient: normalizeNigerianPhoneNumber(to),
-          custom_data: { body: variables },
-        }),
+        body,
       });
 
       const responseBody = await response.text();
