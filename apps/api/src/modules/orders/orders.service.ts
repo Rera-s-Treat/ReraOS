@@ -1,6 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { FulfillmentStatus, KitchenStatus, PaymentStatus } from '@prisma/client';
+import {
+  FulfillmentStatus,
+  KitchenStatus,
+  NotificationCategory,
+  NotificationType,
+  PaymentStatus,
+} from '@prisma/client';
 
+import { normalizeNigerianPhoneNumber } from '../../common/phone';
+import { PrismaService } from '../../common/prisma.service';
+import { VIP_ORDER_THRESHOLD } from '../customers/customers.constants';
 import {
   NotificationsService,
   WhatsappMessageType,
@@ -121,6 +130,7 @@ export class OrdersService {
     private readonly ordersRepository: OrdersRepository,
     private readonly productsRepository: ProductsRepository,
     private readonly notificationsService: NotificationsService,
+    private readonly prisma: PrismaService,
   ) {}
 
   private withUnifiedStatus<T extends OrderLike>(order: T) {
@@ -205,8 +215,38 @@ export class OrdersService {
     });
 
     await this.notificationsService.notifyNewOrder(order);
+    await this.checkCustomerMilestone(order.customerName, order.customerPhone);
 
     return this.withUnifiedStatus(order);
+  }
+
+  private async checkCustomerMilestone(
+    customerName: string,
+    customerPhone: string,
+  ): Promise<void> {
+    const phone = normalizeNigerianPhoneNumber(customerPhone);
+    const allOrders = await this.prisma.order.findMany({
+      select: { customerPhone: true },
+    });
+    const orderCount = allOrders.filter(
+      (order) => normalizeNigerianPhoneNumber(order.customerPhone) === phone,
+    ).length;
+
+    if (orderCount === 2) {
+      await this.notificationsService.notifyAdmin({
+        type: NotificationType.NEW_CUSTOMER_MILESTONE,
+        category: NotificationCategory.SYSTEM,
+        title: `Repeat Customer — ${customerName}`,
+        message: `${customerName} (${customerPhone}) just placed their 2nd order and is now a repeat customer.`,
+      });
+    } else if (orderCount === VIP_ORDER_THRESHOLD) {
+      await this.notificationsService.notifyAdmin({
+        type: NotificationType.NEW_CUSTOMER_MILESTONE,
+        category: NotificationCategory.SYSTEM,
+        title: `VIP Customer — ${customerName}`,
+        message: `${customerName} (${customerPhone}) just crossed ${VIP_ORDER_THRESHOLD} orders and is now a VIP customer.`,
+      });
+    }
   }
 
   async updatePaymentStatus(
@@ -250,6 +290,16 @@ export class OrdersService {
         description:
           'Kitchen status auto-advanced from NOT_STARTED to KITCHEN_INFORMED (payment confirmed)',
       });
+
+      await this.notificationsService.notifyOrderConfirmed(updatedOrder);
+    }
+
+    if (nextStatus === PaymentStatus.CONFIRMED) {
+      await this.notificationsService.notifyPaymentReceived(updatedOrder);
+    } else if (nextStatus === PaymentStatus.FAILED) {
+      await this.notificationsService.notifyPaymentFailed(updatedOrder);
+    } else if (nextStatus === PaymentStatus.REFUNDED) {
+      await this.notificationsService.notifyRefundProcessed(updatedOrder);
     }
 
     return this.withUnifiedStatus(updatedOrder);
@@ -281,6 +331,14 @@ export class OrdersService {
       description: `Kitchen status changed from ${order.kitchenStatus} to ${nextStatus}`,
     });
 
+    if (nextStatus === KitchenStatus.KITCHEN_INFORMED) {
+      await this.notificationsService.notifyOrderConfirmed(updatedOrder);
+    } else if (nextStatus === KitchenStatus.PREPARING) {
+      await this.notificationsService.notifyOrderInPreparation(updatedOrder);
+    } else if (nextStatus === KitchenStatus.READY) {
+      await this.notificationsService.notifyOrderReady(updatedOrder);
+    }
+
     return this.withUnifiedStatus(updatedOrder);
   }
 
@@ -309,6 +367,20 @@ export class OrdersService {
       userId: changedByUserId,
       description: `Fulfillment status changed from ${order.fulfillmentStatus} to ${nextStatus}`,
     });
+
+    if (
+      (
+        [
+          FulfillmentStatus.PICKED_UP,
+          FulfillmentStatus.SERVED,
+          FulfillmentStatus.DELIVERED,
+        ] as FulfillmentStatus[]
+      ).includes(nextStatus)
+    ) {
+      await this.notificationsService.notifyOrderCompleted(updatedOrder);
+    } else if (nextStatus === FulfillmentStatus.CANCELLED) {
+      await this.notificationsService.notifyOrderCancelled(updatedOrder);
+    }
 
     return this.withUnifiedStatus(updatedOrder);
   }

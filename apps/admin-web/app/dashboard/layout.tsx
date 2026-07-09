@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 
 import { getMe } from '@/lib/api';
 import { Logo } from '../../components/brand/Logo';
+import { NotificationBell } from '../../components/notifications/NotificationBell';
 
 interface LoggedInUser {
   id: string;
@@ -63,6 +64,10 @@ const pageMeta: Record<string, { title: string; subtitle: string }> = {
   '/dashboard/settings': {
     title: 'Settings',
     subtitle: 'Manage system and business configuration.',
+  },
+  '/dashboard/notifications': {
+    title: 'Notifications',
+    subtitle: 'Full history of admin notifications.',
   },
 };
 
@@ -174,6 +179,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               </div>
 
               <div className="flex items-center gap-4">
+                <NotificationBell />
+
                 <div className="text-right">
                   <p className="text-sm font-medium text-gray-900">
                     {user?.firstName} {user?.lastName}
