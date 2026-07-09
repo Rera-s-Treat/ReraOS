@@ -37,6 +37,7 @@ enum OrderChannel {
   WHATSAPP
   MANUAL
   WALK_IN
+  WEBSITE
 }
 
 enum OrderType {

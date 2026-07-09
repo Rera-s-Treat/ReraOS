@@ -107,7 +107,7 @@ export class WhatsappSessionsService {
       customerName: session.customerName,
       customerPhone: session.customerPhone,
       customerEmail: session.customerEmail ?? undefined,
-      channel: OrderChannel.WHATSAPP,
+      channel: OrderChannel.WEBSITE,
       orderType: session.orderType,
       deliveryAddress: session.deliveryAddress ?? undefined,
       notes: session.notes ?? undefined,

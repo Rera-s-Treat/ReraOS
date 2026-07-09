@@ -148,13 +148,31 @@ export class NotificationsService {
 
     await this.sendEmail(STAFF_EMAIL, `New Order — ${order.orderNumber}`, emailBody);
 
-    if (order.channel === 'WHATSAPP') {
+    if (order.channel === 'WHATSAPP' || order.channel === 'WEBSITE') {
       await this.sendWhatsApp(STAFF_WHATSAPP_NUMBER, {
         '1': order.customerName,
         '2': order.orderNumber,
         '3': `New order! Items: ${itemsSummary}. Total: ${formatNaira(order.totalAmount)}.`,
       });
     }
+  }
+
+  async notifyPaymentClaimed(order: NotifiableOrder): Promise<void> {
+    const itemsSummary = summarizeItems(order.items);
+
+    const emailBody = [
+      `Customer claims they've paid for order: ${order.orderNumber}`,
+      `Customer: ${order.customerName} (${order.customerPhone})`,
+      `Items: ${itemsSummary}`,
+      `Total: ${formatNaira(order.totalAmount)}`,
+      'Please verify the bank transfer and confirm payment in the admin panel.',
+    ].join('\n');
+
+    await this.sendEmail(
+      STAFF_EMAIL,
+      `Payment Claimed — ${order.orderNumber}`,
+      emailBody,
+    );
   }
 
   async sendOrderStatusMessage(
