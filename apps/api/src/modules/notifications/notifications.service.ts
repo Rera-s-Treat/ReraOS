@@ -105,12 +105,12 @@ export class NotificationsService {
     subject: string,
     text: string,
     cc?: string,
-  ): Promise<boolean> {
+  ): Promise<{ success: boolean; error?: string }> {
     if (!this.isEmailConfigured) {
       this.logger.warn(
         `[Email skipped - no SMTP credentials configured] To: ${to} | Subject: ${subject}\n${text}`,
       );
-      return false;
+      return { success: false, error: 'SMTP not configured' };
     }
 
     try {
@@ -134,10 +134,11 @@ export class NotificationsService {
         subject,
         text,
       });
-      return true;
+      return { success: true };
     } catch (error) {
-      this.logger.error(`Failed to send email to ${to}`, error as Error);
-      return false;
+      const message = (error as Error).message || String(error);
+      this.logger.error(`Failed to send email to ${to}: ${message}`);
+      return { success: false, error: message };
     }
   }
 
@@ -222,7 +223,7 @@ export class NotificationsService {
   }
 
   private async deliverAdminEmail(payload: DispatchAdminPayload): Promise<void> {
-    const emailSent = await this.sendEmailRaw(
+    const result = await this.sendEmailRaw(
       STAFF_EMAIL,
       payload.title,
       payload.message,
@@ -235,19 +236,20 @@ export class NotificationsService {
         category: payload.category,
         audience: NotificationAudience.ADMIN,
         channel: NotificationChannel.EMAIL,
-        status: emailSent
+        status: result.success
           ? NotificationDeliveryStatus.SENT
           : NotificationDeliveryStatus.SKIPPED,
         title: payload.title,
         message: payload.message,
         recipientEmail: STAFF_EMAIL,
         orderId: payload.orderId,
+        errorMessage: result.error,
       },
     });
 
-    if (!emailSent) {
+    if (!result.success) {
       await this.recordDeliveryFailure(
-        `Admin email notification (${payload.type}) was not sent — SMTP not configured or send failed.`,
+        `Admin email notification (${payload.type}) was not sent: ${result.error}`,
         payload.orderId,
       );
     }
@@ -303,7 +305,7 @@ export class NotificationsService {
   }
 
   private async deliverCustomerEmail(payload: DispatchCustomerPayload): Promise<void> {
-    const sent = await this.sendEmailRaw(
+    const result = await this.sendEmailRaw(
       payload.recipientEmail!,
       payload.title,
       payload.message,
@@ -315,13 +317,14 @@ export class NotificationsService {
         category: payload.category,
         audience: NotificationAudience.CUSTOMER,
         channel: NotificationChannel.EMAIL,
-        status: sent
+        status: result.success
           ? NotificationDeliveryStatus.SENT
           : NotificationDeliveryStatus.SKIPPED,
         title: payload.title,
         message: payload.message,
         recipientEmail: payload.recipientEmail,
         orderId: payload.orderId,
+        errorMessage: result.error,
       },
     });
   }
