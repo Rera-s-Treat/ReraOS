@@ -22,6 +22,7 @@ interface DashboardLayoutProps {
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard' },
+  { label: 'Analytics', href: '/dashboard/analytics' },
   { label: 'Users', href: '/dashboard/users' },
   { label: 'Products', href: '/dashboard/products' },
   { label: 'Orders', href: '/dashboard/orders' },
@@ -50,6 +51,10 @@ const pageMeta: Record<string, { title: string; subtitle: string }> = {
   '/dashboard/customers': {
     title: 'Customers',
     subtitle: 'See who your customers are and how they order.',
+  },
+  '/dashboard/analytics': {
+    title: 'Analytics',
+    subtitle: 'All-time and month-on-month performance.',
   },
   '/dashboard/inventory': {
     title: 'Inventory',

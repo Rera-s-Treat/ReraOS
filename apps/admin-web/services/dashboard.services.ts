@@ -1,8 +1,10 @@
 import axiosInstance from './axios';
 import {
   ActionQueue,
+  AllTimeOverview,
   DashboardOverview,
   InventoryAlerts,
+  MonthlyAnalytics,
   OrderStatusSummary,
   SalesTrendPoint,
   TopProduct,
@@ -45,5 +47,15 @@ export const getInventoryAlerts = async (): Promise<InventoryAlerts> => {
 
 export const getActionQueue = async (): Promise<ActionQueue> => {
   const response = await axiosInstance.get('/dashboard/action-queue');
+  return response.data;
+};
+
+export const getAllTimeOverview = async (): Promise<AllTimeOverview> => {
+  const response = await axiosInstance.get('/dashboard/analytics/all-time');
+  return response.data;
+};
+
+export const getMonthlyAnalytics = async (): Promise<MonthlyAnalytics[]> => {
+  const response = await axiosInstance.get('/dashboard/analytics/monthly');
   return response.data;
 };

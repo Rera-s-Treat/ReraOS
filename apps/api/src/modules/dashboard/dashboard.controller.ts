@@ -57,6 +57,23 @@ export class DashboardController {
     return this.dashboardService.getInventoryAlerts();
   }
 
+  @Get('analytics/all-time')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'STAFF')
+  @ApiOperation({ summary: 'Get all-time order, revenue, and customer totals' })
+  getAllTimeOverview() {
+    return this.dashboardService.getAllTimeOverview();
+  }
+
+  @Get('analytics/monthly')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'STAFF')
+  @ApiOperation({
+    summary:
+      'Get month-on-month breakdown of orders, revenue, payment mix, customer behavior, and top products/customers',
+  })
+  getMonthlyAnalytics() {
+    return this.dashboardService.getMonthlyAnalytics();
+  }
+
   @Get('action-queue')
   @Roles('SUPER_ADMIN', 'ADMIN', 'STAFF')
   @ApiOperation({ summary: 'Get recent, unpaid, and pending-confirmation orders' })

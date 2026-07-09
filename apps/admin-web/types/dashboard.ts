@@ -63,3 +63,45 @@ export interface ActionQueue {
   unpaidOrders: ActionQueueOrder[];
   pendingConfirmationOrders: ActionQueueOrder[];
 }
+
+export interface AllTimeOverview {
+  totalOrders: number;
+  totalRevenue: number;
+  totalCustomers: number;
+  averageOrderValue: number;
+  firstOrderAt: string | null;
+  lastOrderAt: string | null;
+}
+
+export interface MonthlyPaymentBreakdown {
+  confirmed: number;
+  pendingConfirmation: number;
+  failed: number;
+  refunded: number;
+}
+
+export interface MonthlyTopProduct {
+  productId: string;
+  name: string;
+  quantitySold: number;
+  revenue: number;
+}
+
+export interface MonthlyTopCustomer {
+  phone: string;
+  name: string;
+  totalSpend: number;
+  orders: number;
+}
+
+export interface MonthlyAnalytics {
+  month: string;
+  orders: number;
+  revenue: number;
+  averageOrderValue: number;
+  paymentBreakdown: MonthlyPaymentBreakdown;
+  newCustomers: number;
+  returningCustomers: number;
+  topProducts: MonthlyTopProduct[];
+  topCustomers: MonthlyTopCustomer[];
+}

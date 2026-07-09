@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InventoryStatus, KitchenStatus, PaymentStatus } from '@prisma/client';
 
+import { normalizeNigerianPhoneNumber } from '../../common/phone';
 import { PrismaService } from '../../common/prisma.service';
 import { computeUnifiedStatus } from '../orders/orders.service';
 
@@ -18,6 +19,10 @@ function addDays(date: Date, days: number): Date {
 
 function toDateKey(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+function toMonthKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
 const ACTION_QUEUE_SELECT = {
@@ -219,6 +224,176 @@ export class DashboardService {
       outOfStock: outOfStock.map(toAlertItem),
       needingRestockCount: lowStock.length + outOfStock.length,
     };
+  }
+
+  async getAllTimeOverview() {
+    const orders = await this.prisma.order.findMany({
+      select: {
+        totalAmount: true,
+        paymentStatus: true,
+        customerPhone: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (orders.length === 0) {
+      return {
+        totalOrders: 0,
+        totalRevenue: 0,
+        totalCustomers: 0,
+        averageOrderValue: 0,
+        firstOrderAt: null,
+        lastOrderAt: null,
+      };
+    }
+
+    let totalRevenue = 0;
+    let confirmedCount = 0;
+    const customers = new Set<string>();
+
+    for (const order of orders) {
+      customers.add(normalizeNigerianPhoneNumber(order.customerPhone));
+
+      if (order.paymentStatus === PaymentStatus.CONFIRMED) {
+        totalRevenue += Number(order.totalAmount);
+        confirmedCount += 1;
+      }
+    }
+
+    return {
+      totalOrders: orders.length,
+      totalRevenue,
+      totalCustomers: customers.size,
+      averageOrderValue: confirmedCount > 0 ? totalRevenue / confirmedCount : 0,
+      firstOrderAt: orders[0].createdAt,
+      lastOrderAt: orders[orders.length - 1].createdAt,
+    };
+  }
+
+  async getMonthlyAnalytics() {
+    const orders = await this.prisma.order.findMany({
+      include: { items: { include: { product: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (orders.length === 0) return [];
+
+    const firstOrderMonthByPhone = new Map<string, string>();
+    for (const order of orders) {
+      const phone = normalizeNigerianPhoneNumber(order.customerPhone);
+      if (!firstOrderMonthByPhone.has(phone)) {
+        firstOrderMonthByPhone.set(phone, toMonthKey(order.createdAt));
+      }
+    }
+
+    const monthGroups = new Map<string, typeof orders>();
+    for (const order of orders) {
+      const key = toMonthKey(order.createdAt);
+      const group = monthGroups.get(key);
+      if (group) {
+        group.push(order);
+      } else {
+        monthGroups.set(key, [order]);
+      }
+    }
+
+    return Array.from(monthGroups.keys())
+      .sort()
+      .map((month) => {
+        const monthOrders = monthGroups.get(month)!;
+
+        let revenue = 0;
+        let confirmedCount = 0;
+        const paymentBreakdown = {
+          CONFIRMED: 0,
+          PENDING_CONFIRMATION: 0,
+          FAILED: 0,
+          REFUNDED: 0,
+        };
+
+        const productAgg = new Map<
+          string,
+          { productId: string; name: string; quantitySold: number; revenue: number }
+        >();
+        const customerAgg = new Map<
+          string,
+          { phone: string; name: string; totalSpend: number; orders: number }
+        >();
+        const seenPhonesThisMonth = new Set<string>();
+        let newCustomers = 0;
+
+        for (const order of monthOrders) {
+          const phone = normalizeNigerianPhoneNumber(order.customerPhone);
+          const isConfirmed = order.paymentStatus === PaymentStatus.CONFIRMED;
+
+          paymentBreakdown[order.paymentStatus] += 1;
+
+          if (isConfirmed) {
+            revenue += Number(order.totalAmount);
+            confirmedCount += 1;
+          }
+
+          const custExisting = customerAgg.get(phone);
+          const spendDelta = isConfirmed ? Number(order.totalAmount) : 0;
+          if (custExisting) {
+            custExisting.totalSpend += spendDelta;
+            custExisting.orders += 1;
+          } else {
+            customerAgg.set(phone, {
+              phone,
+              name: order.customerName,
+              totalSpend: spendDelta,
+              orders: 1,
+            });
+          }
+
+          for (const item of order.items) {
+            const existing = productAgg.get(item.productId);
+            const lineRevenue = Number(item.lineTotal);
+
+            if (existing) {
+              existing.quantitySold += item.quantity;
+              existing.revenue += lineRevenue;
+            } else {
+              productAgg.set(item.productId, {
+                productId: item.productId,
+                name: item.product.name,
+                quantitySold: item.quantity,
+                revenue: lineRevenue,
+              });
+            }
+          }
+
+          if (!seenPhonesThisMonth.has(phone)) {
+            seenPhonesThisMonth.add(phone);
+            if (firstOrderMonthByPhone.get(phone) === month) {
+              newCustomers += 1;
+            }
+          }
+        }
+
+        return {
+          month,
+          orders: monthOrders.length,
+          revenue,
+          averageOrderValue: confirmedCount > 0 ? revenue / confirmedCount : 0,
+          paymentBreakdown: {
+            confirmed: paymentBreakdown.CONFIRMED,
+            pendingConfirmation: paymentBreakdown.PENDING_CONFIRMATION,
+            failed: paymentBreakdown.FAILED,
+            refunded: paymentBreakdown.REFUNDED,
+          },
+          newCustomers,
+          returningCustomers: seenPhonesThisMonth.size - newCustomers,
+          topProducts: Array.from(productAgg.values())
+            .sort((a, b) => b.quantitySold - a.quantitySold)
+            .slice(0, 5),
+          topCustomers: Array.from(customerAgg.values())
+            .sort((a, b) => b.totalSpend - a.totalSpend)
+            .slice(0, 5),
+        };
+      });
   }
 
   async getActionQueue() {
