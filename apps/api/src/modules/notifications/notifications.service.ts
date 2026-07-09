@@ -122,6 +122,9 @@ export class NotificationsService {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASS,
         },
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 10_000,
       });
 
       await transporter.sendMail({
@@ -194,7 +197,11 @@ export class NotificationsService {
     await this.sendWhatsAppRaw(to, variables);
   }
 
-  /** Fires an admin-facing notification: persisted for the in-app feed, and emailed to staff + cc. */
+  /**
+   * Fires an admin-facing notification: the in-app record is written immediately
+   * (fast, no network call), while the actual email delivery runs in the
+   * background so a slow/hanging SMTP connection never blocks the caller.
+   */
   async notifyAdmin(payload: DispatchAdminPayload): Promise<void> {
     await this.prisma.notification.create({
       data: {
@@ -209,6 +216,12 @@ export class NotificationsService {
       },
     });
 
+    void this.deliverAdminEmail(payload).catch((error) =>
+      this.logger.error('Unexpected error delivering admin email', error as Error),
+    );
+  }
+
+  private async deliverAdminEmail(payload: DispatchAdminPayload): Promise<void> {
     const emailSent = await this.sendEmailRaw(
       STAFF_EMAIL,
       payload.title,
@@ -240,61 +253,77 @@ export class NotificationsService {
     }
   }
 
-  /** Fires a customer-facing notification via WhatsApp and/or email, whichever contact info is available. */
+  /**
+   * Fires a customer-facing notification via WhatsApp and/or email, whichever
+   * contact info is available. Both deliveries run in the background so a
+   * slow/hanging provider never blocks the caller (e.g. order creation).
+   */
   async notifyCustomer(payload: DispatchCustomerPayload): Promise<void> {
     if (payload.recipientPhone) {
-      const sent = await this.sendWhatsAppRaw(
-        payload.recipientPhone,
-        payload.whatsappVariables,
+      void this.deliverCustomerWhatsapp(payload).catch((error) =>
+        this.logger.error('Unexpected error delivering customer WhatsApp', error as Error),
       );
-
-      await this.prisma.notification.create({
-        data: {
-          type: payload.type,
-          category: payload.category,
-          audience: NotificationAudience.CUSTOMER,
-          channel: NotificationChannel.WHATSAPP,
-          status: sent
-            ? NotificationDeliveryStatus.SENT
-            : NotificationDeliveryStatus.SKIPPED,
-          title: payload.title,
-          message: payload.message,
-          recipientPhone: payload.recipientPhone,
-          orderId: payload.orderId,
-        },
-      });
-
-      if (!sent) {
-        await this.recordDeliveryFailure(
-          `Customer WhatsApp notification (${payload.type}) to ${payload.recipientPhone} was not sent — Twilio not configured or send failed.`,
-          payload.orderId,
-        );
-      }
     }
 
     if (payload.recipientEmail) {
-      const sent = await this.sendEmailRaw(
-        payload.recipientEmail,
-        payload.title,
-        payload.message,
+      void this.deliverCustomerEmail(payload).catch((error) =>
+        this.logger.error('Unexpected error delivering customer email', error as Error),
       );
-
-      await this.prisma.notification.create({
-        data: {
-          type: payload.type,
-          category: payload.category,
-          audience: NotificationAudience.CUSTOMER,
-          channel: NotificationChannel.EMAIL,
-          status: sent
-            ? NotificationDeliveryStatus.SENT
-            : NotificationDeliveryStatus.SKIPPED,
-          title: payload.title,
-          message: payload.message,
-          recipientEmail: payload.recipientEmail,
-          orderId: payload.orderId,
-        },
-      });
     }
+  }
+
+  private async deliverCustomerWhatsapp(payload: DispatchCustomerPayload): Promise<void> {
+    const sent = await this.sendWhatsAppRaw(
+      payload.recipientPhone!,
+      payload.whatsappVariables,
+    );
+
+    await this.prisma.notification.create({
+      data: {
+        type: payload.type,
+        category: payload.category,
+        audience: NotificationAudience.CUSTOMER,
+        channel: NotificationChannel.WHATSAPP,
+        status: sent
+          ? NotificationDeliveryStatus.SENT
+          : NotificationDeliveryStatus.SKIPPED,
+        title: payload.title,
+        message: payload.message,
+        recipientPhone: payload.recipientPhone,
+        orderId: payload.orderId,
+      },
+    });
+
+    if (!sent) {
+      await this.recordDeliveryFailure(
+        `Customer WhatsApp notification (${payload.type}) to ${payload.recipientPhone} was not sent — Twilio not configured or send failed.`,
+        payload.orderId,
+      );
+    }
+  }
+
+  private async deliverCustomerEmail(payload: DispatchCustomerPayload): Promise<void> {
+    const sent = await this.sendEmailRaw(
+      payload.recipientEmail!,
+      payload.title,
+      payload.message,
+    );
+
+    await this.prisma.notification.create({
+      data: {
+        type: payload.type,
+        category: payload.category,
+        audience: NotificationAudience.CUSTOMER,
+        channel: NotificationChannel.EMAIL,
+        status: sent
+          ? NotificationDeliveryStatus.SENT
+          : NotificationDeliveryStatus.SKIPPED,
+        title: payload.title,
+        message: payload.message,
+        recipientEmail: payload.recipientEmail,
+        orderId: payload.orderId,
+      },
+    });
   }
 
   private async recordDeliveryFailure(message: string, orderId?: string): Promise<void> {
