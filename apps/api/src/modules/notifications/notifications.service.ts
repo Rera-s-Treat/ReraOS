@@ -114,7 +114,12 @@ export class NotificationsService {
     }
 
     try {
-      const transporter = nodemailer.createTransport({
+      // Railway's network has no outbound IPv6 route; Gmail's SMTP hostname
+      // resolves to both A and AAAA records, and Node prefers IPv6 by
+      // default, causing ENETUNREACH. Force IPv4 (nodemailer forwards
+      // unrecognized options to the underlying socket, but its types don't
+      // declare `family`, hence the intermediate untyped object).
+      const transportOptions = {
         host: process.env.SMTP_HOST,
         port: Number(process.env.SMTP_PORT ?? 587),
         secure: process.env.SMTP_SECURE === 'true',
@@ -125,7 +130,10 @@ export class NotificationsService {
         connectionTimeout: 10_000,
         greetingTimeout: 10_000,
         socketTimeout: 10_000,
-      });
+        family: 4,
+      };
+
+      const transporter = nodemailer.createTransport(transportOptions);
 
       await transporter.sendMail({
         from: process.env.SMTP_FROM || process.env.SMTP_USER,
