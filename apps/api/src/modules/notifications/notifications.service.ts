@@ -6,7 +6,6 @@ import {
   NotificationDeliveryStatus,
   NotificationType,
 } from '@prisma/client';
-import * as nodemailer from 'nodemailer';
 
 import { normalizeNigerianPhoneNumber } from '../../common/phone';
 import { PAYMENT_ACCOUNT } from '../../common/payment-account';
@@ -17,6 +16,9 @@ const ADMIN_CC_EMAIL =
   process.env.ADMIN_NOTIFICATION_CC_EMAIL || 'adeeyotemitope5@gmail.com';
 const STAFF_WHATSAPP_NUMBER =
   process.env.STAFF_NOTIFICATION_WHATSAPP_NUMBER || '09124800610';
+
+const RESEND_API_URL = 'https://api.resend.com/emails';
+const RESEND_DEFAULT_FROM = "Rera's Treat <onboarding@resend.dev>";
 
 function twilioMessagesUrl(accountSid: string): string {
   return `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
@@ -86,9 +88,7 @@ export class NotificationsService {
   constructor(private readonly prisma: PrismaService) {}
 
   private get isEmailConfigured(): boolean {
-    return Boolean(
-      process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS,
-    );
+    return Boolean(process.env.RESEND_API_KEY);
   }
 
   private get isWhatsAppConfigured(): boolean {
@@ -108,40 +108,33 @@ export class NotificationsService {
   ): Promise<{ success: boolean; error?: string }> {
     if (!this.isEmailConfigured) {
       this.logger.warn(
-        `[Email skipped - no SMTP credentials configured] To: ${to} | Subject: ${subject}\n${text}`,
+        `[Email skipped - no Resend API key configured] To: ${to} | Subject: ${subject}\n${text}`,
       );
-      return { success: false, error: 'SMTP not configured' };
+      return { success: false, error: 'Resend API key not configured' };
     }
 
     try {
-      // Railway's network has no outbound IPv6 route; Gmail's SMTP hostname
-      // resolves to both A and AAAA records, and Node prefers IPv6 by
-      // default, causing ENETUNREACH. Force IPv4 (nodemailer forwards
-      // unrecognized options to the underlying socket, but its types don't
-      // declare `family`, hence the intermediate untyped object).
-      const transportOptions = {
-        host: process.env.SMTP_HOST,
-        port: Number(process.env.SMTP_PORT ?? 587),
-        secure: process.env.SMTP_SECURE === 'true',
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
+      const response = await fetch(RESEND_API_URL, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
         },
-        connectionTimeout: 10_000,
-        greetingTimeout: 10_000,
-        socketTimeout: 10_000,
-        family: 4,
-      };
-
-      const transporter = nodemailer.createTransport(transportOptions);
-
-      await transporter.sendMail({
-        from: process.env.SMTP_FROM || process.env.SMTP_USER,
-        to,
-        cc,
-        subject,
-        text,
+        body: JSON.stringify({
+          from: process.env.RESEND_FROM_EMAIL || RESEND_DEFAULT_FROM,
+          to: [to],
+          cc: cc ? [cc] : undefined,
+          subject,
+          text,
+        }),
       });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        this.logger.error(`Failed to send email to ${to}: ${response.status} ${errorBody}`);
+        return { success: false, error: `${response.status}: ${errorBody}` };
+      }
+
       return { success: true };
     } catch (error) {
       const message = (error as Error).message || String(error);
