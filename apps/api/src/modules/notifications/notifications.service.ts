@@ -224,11 +224,17 @@ export class NotificationsService {
   }
 
   private async deliverAdminEmail(payload: DispatchAdminPayload): Promise<void> {
+    // Resend's sandbox mode (no verified domain) only allows sending to the
+    // account's own signup address — a CC to a second address gets rejected.
+    // Once a domain is verified on resend.com/domains, set
+    // RESEND_DOMAIN_VERIFIED=true to restore the cc.
+    const cc = process.env.RESEND_DOMAIN_VERIFIED === 'true' ? ADMIN_CC_EMAIL : undefined;
+
     const result = await this.sendEmailRaw(
       STAFF_EMAIL,
       payload.title,
       payload.message,
-      ADMIN_CC_EMAIL,
+      cc,
     );
 
     await this.prisma.notification.create({
