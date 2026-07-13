@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Product } from '../../types/product';
+import { PRODUCT_CATEGORY_LABELS, Product, ProductCategory } from '../../types/product';
 import { updateProduct } from '../../services/products.services';
 
 interface EditProductModalProps {
@@ -16,7 +16,7 @@ interface FormState {
   sku: string;
   description: string;
   price: string;
-  category: string;
+  category: ProductCategory | '';
   status: string;
   isAvailable: boolean;
 }
@@ -32,6 +32,10 @@ const emptyForm: FormState = {
 };
 
 const statusOptions = ['ACTIVE', 'INACTIVE'];
+
+const categoryOptions = Object.entries(PRODUCT_CATEGORY_LABELS) as Array<
+  [ProductCategory, string]
+>;
 
 export const EditProductModal: React.FC<EditProductModalProps> = ({
   isOpen,
@@ -104,7 +108,7 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
         sku: form.sku.trim() || undefined,
         description: form.description.trim() || undefined,
         price: Number(form.price),
-        category: form.category.trim() || undefined,
+        category: form.category || undefined,
         status: form.status,
         isAvailable: form.isAvailable,
       });
@@ -180,13 +184,19 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
 
             <div style={fieldStyle}>
               <label>Category</label>
-              <input
+              <select
                 name="category"
                 value={form.category}
                 onChange={handleChange}
-                placeholder="e.g. Main Course"
                 style={inputStyle}
-              />
+              >
+                <option value="">Select a category</option>
+                {categoryOptions.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

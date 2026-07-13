@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { AddProductModal } from './AddProductModal';
 import { EditProductModal } from './EditProductModal';
 import { getProductImageUrl, getProducts } from '../../services/products.services';
-import { Product } from '../../types/product';
+import { PRODUCT_CATEGORY_LABELS, Product } from '../../types/product';
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -81,7 +81,9 @@ export default function ProductsPage() {
                     )}
                   </td>
                   <td style={tdStyle}>{product.name}</td>
-                  <td style={tdStyle}>{product.category || '-'}</td>
+                  <td style={tdStyle}>
+                    {product.category ? PRODUCT_CATEGORY_LABELS[product.category] : '-'}
+                  </td>
                   <td style={tdStyle}>
                     {Number(product.price).toLocaleString(undefined, {
                       minimumFractionDigits: 2,

@@ -1,5 +1,10 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { OrderChannel, Prisma, WhatsappSessionStatus } from '@prisma/client';
+import {
+  OrderChannel,
+  Prisma,
+  ProductCategory,
+  WhatsappSessionStatus,
+} from '@prisma/client';
 
 import { PAYMENT_ACCOUNT } from '../../common/payment-account';
 import { ProductsRepository } from '../products/products.repository';
@@ -17,8 +22,8 @@ export class WhatsappSessionsService {
     private readonly ordersService: OrdersService,
   ) {}
 
-  async getMenu() {
-    return this.productsRepository.findAvailable();
+  async getMenu(category?: ProductCategory) {
+    return this.productsRepository.findAvailable(category);
   }
 
   async startOrResumeSession(dto: StartSessionDto) {

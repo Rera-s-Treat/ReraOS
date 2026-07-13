@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ProductStatus } from '@prisma/client';
+import { ProductCategory, ProductStatus } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
@@ -57,8 +57,8 @@ export class CreateProductDto {
   @IsBoolean()
   isAvailable?: boolean;
 
-  @ApiPropertyOptional({ example: 'Main Course' })
+  @ApiPropertyOptional({ enum: ProductCategory, example: ProductCategory.PLATTERS })
   @IsOptional()
-  @IsString()
-  category?: string;
+  @IsEnum(ProductCategory)
+  category?: ProductCategory;
 }

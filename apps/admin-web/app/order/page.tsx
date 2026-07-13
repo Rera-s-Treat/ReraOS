@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Logo } from '../../components/brand/Logo';
-import { Product } from '../../types/product';
+import { PRODUCT_CATEGORY_LABELS, Product, ProductCategory } from '../../types/product';
 import { Order, OrderType } from '../../types/order';
 import {
   CartItem,
@@ -31,6 +31,9 @@ export default function PublicOrderPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<Record<string, number>>({});
+  const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'ALL'>(
+    'ALL',
+  );
 
   const [phoneInput, setPhoneInput] = useState('');
   const [nameInput, setNameInput] = useState('');
@@ -135,6 +138,21 @@ export default function PublicOrderPage() {
     const product = products.find((p) => p.id === productId);
     return sum + (product ? Number(product.price) * qty : 0);
   }, 0);
+
+  const visibleProducts =
+    selectedCategory === 'ALL'
+      ? products
+      : products.filter((product) => product.category === selectedCategory);
+
+  const cartProductCategories = new Set(
+    Object.keys(cart)
+      .map((productId) => products.find((p) => p.id === productId)?.category)
+      .filter(Boolean),
+  );
+  const showDrinksNudge =
+    (cartProductCategories.has('PLATTERS') ||
+      cartProductCategories.has('WHOLE_MEALS')) &&
+    !cartProductCategories.has('DRINKS');
 
   function setQuantity(productId: string, quantity: number) {
     setCart((prev) => {
@@ -284,10 +302,36 @@ export default function PublicOrderPage() {
           <div>
             <p style={subtitleStyle}>Tap + to add items to your order.</p>
 
+            <div style={categoryTabsRowStyle}>
+              {(['ALL', ...Object.keys(PRODUCT_CATEGORY_LABELS)] as Array<
+                ProductCategory | 'ALL'
+              >).map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => setSelectedCategory(category)}
+                  style={{
+                    ...categoryTabStyle,
+                    ...(selectedCategory === category
+                      ? categoryTabActiveStyle
+                      : {}),
+                  }}
+                >
+                  {category === 'ALL' ? 'All' : PRODUCT_CATEGORY_LABELS[category]}
+                </button>
+              ))}
+            </div>
+
+            {showDrinksNudge && (
+              <div style={nudgeBannerStyle}>🥤 Don&apos;t forget the drinks!</div>
+            )}
+
             {products.length === 0 ? (
               <p>Loading menu...</p>
+            ) : visibleProducts.length === 0 ? (
+              <p>No items in this category.</p>
             ) : (
-              products.map((product) => (
+              visibleProducts.map((product) => (
                 <div key={product.id} style={menuRowStyle}>
                   <div style={menuItemInfoStyle}>
                     {product.images?.[0] ? (
@@ -418,6 +462,10 @@ export default function PublicOrderPage() {
         {phase === 'review' && (
           <div>
             <h2 style={sectionTitleStyle}>Review Your Order</h2>
+
+            {showDrinksNudge && (
+              <div style={nudgeBannerStyle}>🥤 Don&apos;t forget the drinks!</div>
+            )}
 
             {Object.entries(cart).map(([productId, qty]) => {
               const product = products.find((p) => p.id === productId);
@@ -587,6 +635,41 @@ const primaryBtnStyle: React.CSSProperties = {
 
 const errorStyle: React.CSSProperties = {
   color: '#b42318',
+  marginBottom: 16,
+};
+
+const categoryTabsRowStyle: React.CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 8,
+  marginBottom: 16,
+};
+
+const categoryTabStyle: React.CSSProperties = {
+  padding: '6px 14px',
+  borderRadius: 999,
+  border: '1px solid #d1d5db',
+  background: '#fff',
+  color: '#374151',
+  fontSize: 13,
+  fontWeight: 600,
+  cursor: 'pointer',
+};
+
+const categoryTabActiveStyle: React.CSSProperties = {
+  background: '#E8621A',
+  borderColor: '#E8621A',
+  color: '#fff',
+};
+
+const nudgeBannerStyle: React.CSSProperties = {
+  background: '#fef6e7',
+  color: '#b45309',
+  border: '1px solid #fde5b8',
+  borderRadius: 8,
+  padding: '10px 14px',
+  fontSize: 14,
+  fontWeight: 600,
   marginBottom: 16,
 };
 

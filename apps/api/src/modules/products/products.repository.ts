@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ProductStatus } from '@prisma/client';
+import { ProductCategory, ProductStatus } from '@prisma/client';
 
 import { PrismaService } from '../../common/prisma.service';
 
@@ -31,9 +31,13 @@ export class ProductsRepository {
     });
   }
 
-  async findAvailable() {
+  async findAvailable(category?: ProductCategory) {
     return this.prisma.product.findMany({
-      where: { status: 'ACTIVE', isAvailable: true },
+      where: {
+        status: 'ACTIVE',
+        isAvailable: true,
+        ...(category ? { category } : {}),
+      },
       orderBy: { name: 'asc' },
     });
   }
@@ -45,7 +49,7 @@ export class ProductsRepository {
     price: number;
     status?: ProductStatus;
     isAvailable?: boolean;
-    category?: string;
+    category?: ProductCategory;
     images?: string[];
   }) {
     return this.prisma.product.create({
@@ -62,7 +66,7 @@ export class ProductsRepository {
       price?: number;
       status?: ProductStatus;
       isAvailable?: boolean;
-      category?: string;
+      category?: ProductCategory;
     },
   ) {
     return this.prisma.product.update({

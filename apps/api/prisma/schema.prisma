@@ -205,6 +205,14 @@ model InventoryItem {
   @@index([status])
 }
 
+enum ProductCategory {
+  PACKS
+  PLATTERS
+  WHOLE_MEALS
+  SPECIALS
+  DRINKS
+}
+
 model Product {
   id            String          @id @default(uuid())
 
@@ -217,7 +225,7 @@ model Product {
   status        ProductStatus   @default(ACTIVE)
   isAvailable   Boolean         @default(true)
 
-  category      String?
+  category      ProductCategory?
   images        String[]        @default([])
 
   orderItems    OrderItem[]

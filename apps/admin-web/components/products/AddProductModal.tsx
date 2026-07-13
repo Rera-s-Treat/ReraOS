@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { createProduct } from '../../services/products.services';
+import { PRODUCT_CATEGORY_LABELS, ProductCategory } from '../../types/product';
 
 interface AddProductModalProps {
   isOpen: boolean;
@@ -14,7 +15,7 @@ interface FormState {
   sku: string;
   description: string;
   price: string;
-  category: string;
+  category: ProductCategory | '';
   isAvailable: boolean;
 }
 
@@ -26,6 +27,10 @@ const initialForm: FormState = {
   category: '',
   isAvailable: true,
 };
+
+const categoryOptions = Object.entries(PRODUCT_CATEGORY_LABELS) as Array<
+  [ProductCategory, string]
+>;
 
 const MAX_IMAGES = 3;
 
@@ -59,7 +64,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   };
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) => {
     const { name, value, type } = e.target;
     const checked =
@@ -109,7 +114,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
         sku: form.sku.trim() || undefined,
         description: form.description.trim() || undefined,
         price: Number(form.price),
-        category: form.category.trim() || undefined,
+        category: form.category || undefined,
         isAvailable: form.isAvailable,
         images,
       });
@@ -187,13 +192,19 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
 
             <div style={fieldStyle}>
               <label>Category</label>
-              <input
+              <select
                 name="category"
                 value={form.category}
                 onChange={handleChange}
-                placeholder="e.g. Main Course"
                 style={inputStyle}
-              />
+              >
+                <option value="">Select a category</option>
+                {categoryOptions.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

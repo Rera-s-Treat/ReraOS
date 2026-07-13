@@ -1,3 +1,18 @@
+export type ProductCategory =
+  | 'PACKS'
+  | 'PLATTERS'
+  | 'WHOLE_MEALS'
+  | 'SPECIALS'
+  | 'DRINKS';
+
+export const PRODUCT_CATEGORY_LABELS: Record<ProductCategory, string> = {
+  PACKS: 'Packs',
+  PLATTERS: 'Platters',
+  WHOLE_MEALS: 'Whole Meals',
+  SPECIALS: 'Specials',
+  DRINKS: 'Drinks',
+};
+
 export interface Product {
   id: string;
   name: string;
@@ -6,7 +21,7 @@ export interface Product {
   price: string;
   status: string;
   isAvailable: boolean;
-  category?: string | null;
+  category?: ProductCategory | null;
   images: string[];
   createdAt?: string;
   updatedAt?: string;
@@ -19,7 +34,7 @@ export interface CreateProductPayload {
   price: number;
   status?: string;
   isAvailable?: boolean;
-  category?: string;
+  category?: ProductCategory;
   images?: File[];
 }
 
@@ -30,5 +45,5 @@ export interface UpdateProductPayload {
   price?: number;
   status?: string;
   isAvailable?: boolean;
-  category?: string;
+  category?: ProductCategory;
 }
