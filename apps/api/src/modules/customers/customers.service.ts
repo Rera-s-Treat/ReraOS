@@ -164,7 +164,7 @@ export class CustomersService {
     const phone = normalizeNigerianPhoneNumber(phoneParam);
 
     const allOrders = await this.prisma.order.findMany({
-      include: { items: { include: { product: true } } },
+      include: { items: { include: { product: { include: { category: true } } } } },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -197,21 +197,23 @@ export class CustomersService {
       for (const item of order.items) {
         const existing = productCounts.get(item.productId);
 
+        const categoryName = item.product.category?.name ?? null;
+
         if (existing) {
           existing.quantity += item.quantity;
         } else {
           productCounts.set(item.productId, {
             productId: item.productId,
             name: item.product.name,
-            category: item.product.category,
+            category: categoryName,
             quantity: item.quantity,
           });
         }
 
-        if (item.product.category) {
+        if (categoryName) {
           categoryCounts.set(
-            item.product.category,
-            (categoryCounts.get(item.product.category) ?? 0) + item.quantity,
+            categoryName,
+            (categoryCounts.get(categoryName) ?? 0) + item.quantity,
           );
         }
       }

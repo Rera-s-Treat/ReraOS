@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { Logo } from '../../components/brand/Logo';
-import { PRODUCT_CATEGORY_LABELS, Product, ProductCategory } from '../../types/product';
+import { Product } from '../../types/product';
+import { Category } from '../../types/category';
 import { Order, OrderType } from '../../types/order';
 import {
   CartItem,
@@ -10,6 +11,7 @@ import {
   WhatsappSession,
 } from '../../types/whatsapp-session';
 import { getProductImageUrl } from '../../services/products.services';
+import { getCategories } from '../../services/categories.services';
 import {
   checkoutSession,
   getMenu,
@@ -18,6 +20,9 @@ import {
   startSession,
   updateSession,
 } from '../../services/whatsapp-sessions.services';
+
+const NUDGE_TRIGGER_CATEGORY_NAMES = ['platters', 'whole meals'];
+const DRINKS_CATEGORY_NAME = 'drinks';
 
 const STORAGE_KEY = 'reraos_order_session_id';
 
@@ -30,10 +35,9 @@ export default function PublicOrderPage() {
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [cart, setCart] = useState<Record<string, number>>({});
-  const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'ALL'>(
-    'ALL',
-  );
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'ALL'>('ALL');
 
   const [phoneInput, setPhoneInput] = useState('');
   const [nameInput, setNameInput] = useState('');
@@ -110,8 +114,9 @@ export default function PublicOrderPage() {
         return;
       }
 
-      const menu = await getMenu();
+      const [menu, categoryList] = await Promise.all([getMenu(), getCategories()]);
       setProducts(menu);
+      setCategories(categoryList);
       setPhase('menu');
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to start your order');
@@ -125,8 +130,9 @@ export default function PublicOrderPage() {
 
     (async () => {
       try {
-        const menu = await getMenu();
+        const [menu, categoryList] = await Promise.all([getMenu(), getCategories()]);
         setProducts(menu);
+        setCategories(categoryList);
       } catch (err: any) {
         setError(err?.response?.data?.message || 'Failed to load the menu');
       }
@@ -140,19 +146,20 @@ export default function PublicOrderPage() {
   }, 0);
 
   const visibleProducts =
-    selectedCategory === 'ALL'
+    selectedCategoryId === 'ALL'
       ? products
-      : products.filter((product) => product.category === selectedCategory);
+      : products.filter((product) => product.categoryId === selectedCategoryId);
 
-  const cartProductCategories = new Set(
+  const cartCategoryNames = new Set(
     Object.keys(cart)
-      .map((productId) => products.find((p) => p.id === productId)?.category)
-      .filter(Boolean),
+      .map((productId) =>
+        products.find((p) => p.id === productId)?.category?.name.toLowerCase(),
+      )
+      .filter(Boolean) as string[],
   );
   const showDrinksNudge =
-    (cartProductCategories.has('PLATTERS') ||
-      cartProductCategories.has('WHOLE_MEALS')) &&
-    !cartProductCategories.has('DRINKS');
+    NUDGE_TRIGGER_CATEGORY_NAMES.some((name) => cartCategoryNames.has(name)) &&
+    !cartCategoryNames.has(DRINKS_CATEGORY_NAME);
 
   function setQuantity(productId: string, quantity: number) {
     setCart((prev) => {
@@ -303,21 +310,29 @@ export default function PublicOrderPage() {
             <p style={subtitleStyle}>Tap + to add items to your order.</p>
 
             <div style={categoryTabsRowStyle}>
-              {(['ALL', ...Object.keys(PRODUCT_CATEGORY_LABELS)] as Array<
-                ProductCategory | 'ALL'
-              >).map((category) => (
+              <button
+                type="button"
+                onClick={() => setSelectedCategoryId('ALL')}
+                style={{
+                  ...categoryTabStyle,
+                  ...(selectedCategoryId === 'ALL' ? categoryTabActiveStyle : {}),
+                }}
+              >
+                All
+              </button>
+              {categories.map((category) => (
                 <button
-                  key={category}
+                  key={category.id}
                   type="button"
-                  onClick={() => setSelectedCategory(category)}
+                  onClick={() => setSelectedCategoryId(category.id)}
                   style={{
                     ...categoryTabStyle,
-                    ...(selectedCategory === category
+                    ...(selectedCategoryId === category.id
                       ? categoryTabActiveStyle
                       : {}),
                   }}
                 >
-                  {category === 'ALL' ? 'All' : PRODUCT_CATEGORY_LABELS[category]}
+                  {category.name}
                 </button>
               ))}
             </div>

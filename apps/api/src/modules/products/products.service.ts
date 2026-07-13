@@ -1,16 +1,21 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 
+import { CategoriesService } from '../categories/categories.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductsRepository } from './products.repository';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly productsRepository: ProductsRepository) {}
+  constructor(
+    private readonly productsRepository: ProductsRepository,
+    private readonly categoriesService: CategoriesService,
+  ) {}
 
   async getProducts() {
     return this.productsRepository.findAll();
@@ -37,6 +42,15 @@ export class ProductsService {
       }
     }
 
+    if (createProductDto.categoryId) {
+      const exists = await this.categoriesService.categoryExists(
+        createProductDto.categoryId,
+      );
+      if (!exists) {
+        throw new BadRequestException('Category not found');
+      }
+    }
+
     return this.productsRepository.create({
       name: createProductDto.name,
       sku: createProductDto.sku,
@@ -44,7 +58,7 @@ export class ProductsService {
       price: createProductDto.price,
       status: createProductDto.status,
       isAvailable: createProductDto.isAvailable,
-      category: createProductDto.category,
+      categoryId: createProductDto.categoryId,
       images,
     });
   }
@@ -66,6 +80,15 @@ export class ProductsService {
       }
     }
 
+    if (updateProductDto.categoryId) {
+      const exists = await this.categoriesService.categoryExists(
+        updateProductDto.categoryId,
+      );
+      if (!exists) {
+        throw new BadRequestException('Category not found');
+      }
+    }
+
     return this.productsRepository.update(id, {
       name: updateProductDto.name,
       sku: updateProductDto.sku,
@@ -73,7 +96,7 @@ export class ProductsService {
       price: updateProductDto.price,
       status: updateProductDto.status,
       isAvailable: updateProductDto.isAvailable,
-      category: updateProductDto.category,
+      categoryId: updateProductDto.categoryId,
     });
   }
 }

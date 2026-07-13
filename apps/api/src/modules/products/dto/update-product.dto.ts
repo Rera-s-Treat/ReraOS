@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { ProductCategory, ProductStatus } from '@prisma/client';
+import { ProductStatus } from '@prisma/client';
 import {
   IsBoolean,
   IsEnum,
@@ -47,8 +47,11 @@ export class UpdateProductDto {
   @IsBoolean()
   isAvailable?: boolean;
 
-  @ApiPropertyOptional({ enum: ProductCategory, example: ProductCategory.PLATTERS })
+  @ApiPropertyOptional({
+    description: 'ID of a category from GET /categories',
+    example: 'e3b0c442-98fc-1c14-9afb-4c8996fb9242',
+  })
   @IsOptional()
-  @IsEnum(ProductCategory)
-  category?: ProductCategory;
+  @IsString()
+  categoryId?: string;
 }

@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { ProductCategory, ProductStatus } from '@prisma/client';
+import { ProductStatus } from '@prisma/client';
 
 import { PrismaService } from '../../common/prisma.service';
+
+const productInclude = { category: true } as const;
 
 @Injectable()
 export class ProductsRepository {
@@ -9,6 +11,7 @@ export class ProductsRepository {
 
   async findAll() {
     return this.prisma.product.findMany({
+      include: productInclude,
       orderBy: { name: 'asc' },
     });
   }
@@ -16,6 +19,7 @@ export class ProductsRepository {
   async findById(id: string) {
     return this.prisma.product.findUnique({
       where: { id },
+      include: productInclude,
     });
   }
 
@@ -31,13 +35,14 @@ export class ProductsRepository {
     });
   }
 
-  async findAvailable(category?: ProductCategory) {
+  async findAvailable(categoryId?: string) {
     return this.prisma.product.findMany({
       where: {
         status: 'ACTIVE',
         isAvailable: true,
-        ...(category ? { category } : {}),
+        ...(categoryId ? { categoryId } : {}),
       },
+      include: productInclude,
       orderBy: { name: 'asc' },
     });
   }
@@ -49,11 +54,12 @@ export class ProductsRepository {
     price: number;
     status?: ProductStatus;
     isAvailable?: boolean;
-    category?: ProductCategory;
+    categoryId?: string;
     images?: string[];
   }) {
     return this.prisma.product.create({
       data,
+      include: productInclude,
     });
   }
 
@@ -66,7 +72,7 @@ export class ProductsRepository {
       price?: number;
       status?: ProductStatus;
       isAvailable?: boolean;
-      category?: ProductCategory;
+      categoryId?: string;
     },
   ) {
     return this.prisma.product.update({
@@ -82,8 +88,9 @@ export class ProductsRepository {
         ...(data.isAvailable !== undefined
           ? { isAvailable: data.isAvailable }
           : {}),
-        ...(data.category !== undefined ? { category: data.category } : {}),
+        ...(data.categoryId !== undefined ? { categoryId: data.categoryId } : {}),
       },
+      include: productInclude,
     });
   }
 }

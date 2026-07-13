@@ -31,7 +31,7 @@ export const createProduct = async (
   if (payload.isAvailable !== undefined) {
     formData.append('isAvailable', String(payload.isAvailable));
   }
-  if (payload.category) formData.append('category', payload.category);
+  if (payload.categoryId) formData.append('categoryId', payload.categoryId);
 
   (payload.images ?? []).forEach((file) => {
     formData.append('images', file);

@@ -1,6 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { ProductCategory } from '@prisma/client';
 
 import { StartSessionDto } from './dto/start-session.dto';
 import { UpdateSessionDto } from './dto/update-session.dto';
@@ -14,16 +13,12 @@ export class WhatsappSessionsController {
   ) {}
 
   @Get('menu')
-  @ApiOperation({ summary: 'Get available products for the ordering flow, optionally filtered by category' })
-  @ApiQuery({ name: 'category', enum: ProductCategory, required: false })
-  async getMenu(@Query('category') category?: string) {
-    const validCategory = Object.values(ProductCategory).includes(
-      category as ProductCategory,
-    )
-      ? (category as ProductCategory)
-      : undefined;
-
-    return this.whatsappSessionsService.getMenu(validCategory);
+  @ApiOperation({
+    summary: 'Get available products for the ordering flow, optionally filtered by category ID',
+  })
+  @ApiQuery({ name: 'categoryId', required: false })
+  async getMenu(@Query('categoryId') categoryId?: string) {
+    return this.whatsappSessionsService.getMenu(categoryId);
   }
 
   @Post()

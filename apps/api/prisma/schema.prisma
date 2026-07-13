@@ -205,12 +205,14 @@ model InventoryItem {
   @@index([status])
 }
 
-enum ProductCategory {
-  PACKS
-  PLATTERS
-  WHOLE_MEALS
-  SPECIALS
-  DRINKS
+model Category {
+  id            String    @id @default(uuid())
+  name          String    @unique
+
+  products      Product[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 model Product {
@@ -225,7 +227,8 @@ model Product {
   status        ProductStatus   @default(ACTIVE)
   isAvailable   Boolean         @default(true)
 
-  category      ProductCategory?
+  categoryId    String?
+  category      Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   images        String[]        @default([])
 
   orderItems    OrderItem[]
@@ -236,7 +239,7 @@ model Product {
   @@index([name])
   @@index([status])
   @@index([isAvailable])
-  @@index([category])
+  @@index([categoryId])
 }
 
 model Order {

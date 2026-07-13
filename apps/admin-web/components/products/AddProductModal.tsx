@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { createProduct } from '../../services/products.services';
-import { PRODUCT_CATEGORY_LABELS, ProductCategory } from '../../types/product';
+import { CategorySelect } from './CategorySelect';
 
 interface AddProductModalProps {
   isOpen: boolean;
@@ -15,7 +15,7 @@ interface FormState {
   sku: string;
   description: string;
   price: string;
-  category: ProductCategory | '';
+  categoryId: string;
   isAvailable: boolean;
 }
 
@@ -24,13 +24,9 @@ const initialForm: FormState = {
   sku: '',
   description: '',
   price: '',
-  category: '',
+  categoryId: '',
   isAvailable: true,
 };
-
-const categoryOptions = Object.entries(PRODUCT_CATEGORY_LABELS) as Array<
-  [ProductCategory, string]
->;
 
 const MAX_IMAGES = 3;
 
@@ -114,7 +110,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
         sku: form.sku.trim() || undefined,
         description: form.description.trim() || undefined,
         price: Number(form.price),
-        category: form.category || undefined,
+        categoryId: form.categoryId || undefined,
         isAvailable: form.isAvailable,
         images,
       });
@@ -192,19 +188,10 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
 
             <div style={fieldStyle}>
               <label>Category</label>
-              <select
-                name="category"
-                value={form.category}
-                onChange={handleChange}
-                style={inputStyle}
-              >
-                <option value="">Select a category</option>
-                {categoryOptions.map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+              <CategorySelect
+                value={form.categoryId}
+                onChange={(categoryId) => setForm((prev) => ({ ...prev, categoryId }))}
+              />
             </div>
           </div>
 

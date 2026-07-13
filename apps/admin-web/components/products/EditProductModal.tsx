@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { PRODUCT_CATEGORY_LABELS, Product, ProductCategory } from '../../types/product';
+import { Product } from '../../types/product';
 import { updateProduct } from '../../services/products.services';
+import { CategorySelect } from './CategorySelect';
 
 interface EditProductModalProps {
   isOpen: boolean;
@@ -16,7 +17,7 @@ interface FormState {
   sku: string;
   description: string;
   price: string;
-  category: ProductCategory | '';
+  categoryId: string;
   status: string;
   isAvailable: boolean;
 }
@@ -26,16 +27,12 @@ const emptyForm: FormState = {
   sku: '',
   description: '',
   price: '',
-  category: '',
+  categoryId: '',
   status: 'ACTIVE',
   isAvailable: true,
 };
 
 const statusOptions = ['ACTIVE', 'INACTIVE'];
-
-const categoryOptions = Object.entries(PRODUCT_CATEGORY_LABELS) as Array<
-  [ProductCategory, string]
->;
 
 export const EditProductModal: React.FC<EditProductModalProps> = ({
   isOpen,
@@ -56,7 +53,7 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
       sku: product.sku ?? '',
       description: product.description ?? '',
       price: product.price,
-      category: product.category ?? '',
+      categoryId: product.categoryId ?? '',
       status: product.status,
       isAvailable: product.isAvailable,
     });
@@ -108,7 +105,7 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
         sku: form.sku.trim() || undefined,
         description: form.description.trim() || undefined,
         price: Number(form.price),
-        category: form.category || undefined,
+        categoryId: form.categoryId || undefined,
         status: form.status,
         isAvailable: form.isAvailable,
       });
@@ -184,19 +181,10 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
 
             <div style={fieldStyle}>
               <label>Category</label>
-              <select
-                name="category"
-                value={form.category}
-                onChange={handleChange}
-                style={inputStyle}
-              >
-                <option value="">Select a category</option>
-                {categoryOptions.map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+              <CategorySelect
+                value={form.categoryId}
+                onChange={(categoryId) => setForm((prev) => ({ ...prev, categoryId }))}
+              />
             </div>
           </div>
 
