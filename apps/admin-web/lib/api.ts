@@ -35,6 +35,11 @@ export interface MeResponse {
   status: string;
   createdAt: string;
   updatedAt: string;
+  role: {
+    id: string;
+    name: string;
+    description: string | null;
+  } | null;
 }
 
 export interface UserListItem {

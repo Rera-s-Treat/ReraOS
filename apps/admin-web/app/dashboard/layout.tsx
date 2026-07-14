@@ -3,19 +3,10 @@
 import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 
-import { getMe } from '@/lib/api';
+import { getMe, MeResponse } from '@/lib/api';
+import { CurrentUserContext } from '@/contexts/CurrentUserContext';
 import { Logo } from '../../components/brand/Logo';
 import { NotificationBell } from '../../components/notifications/NotificationBell';
-
-interface LoggedInUser {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone?: string | null;
-  roleId: string;
-  status: string;
-}
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -75,7 +66,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const [user, setUser] = useState<LoggedInUser | null>(null);
+  const [user, setUser] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
@@ -133,7 +124,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   return (
-    <>
+    <CurrentUserContext.Provider
+      value={{ user, isSuperAdmin: user?.role?.name === 'SUPER_ADMIN' }}
+    >
       <div className="min-h-screen bg-gray-100">
         <div className="flex min-h-screen">
           <aside className="w-64 bg-(--color-brand-green) text-white">
@@ -234,6 +227,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </div>
       )}
-    </>
+    </CurrentUserContext.Provider>
   );
 }

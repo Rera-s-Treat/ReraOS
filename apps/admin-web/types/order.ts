@@ -80,6 +80,7 @@ export interface OrderFilters {
   dateTo?: string;
   paymentStatus?: PaymentStatus;
   fulfillmentStatus?: FulfillmentStatus;
+  kitchenStatus?: KitchenStatus;
   search?: string;
 }
 

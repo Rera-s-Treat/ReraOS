@@ -29,6 +29,7 @@ export interface OrderFilters {
   dateTo?: string;
   paymentStatus?: PaymentStatus;
   fulfillmentStatus?: FulfillmentStatus;
+  kitchenStatus?: KitchenStatus;
   search?: string;
 }
 
@@ -45,6 +46,10 @@ export class OrdersRepository {
 
     if (filters?.fulfillmentStatus) {
       where.fulfillmentStatus = filters.fulfillmentStatus;
+    }
+
+    if (filters?.kitchenStatus) {
+      where.kitchenStatus = filters.kitchenStatus;
     }
 
     if (filters?.dateFrom || filters?.dateTo) {

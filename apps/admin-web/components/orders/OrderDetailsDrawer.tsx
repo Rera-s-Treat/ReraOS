@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useCurrentUser } from '@/contexts/CurrentUserContext';
 import { Order, OrderAuditLogEntry } from '../../types/order';
 import {
   getOrderAuditLog,
@@ -26,12 +27,15 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
   const [actionMessage, setActionMessage] = useState('');
   const [isSendingAction, setIsSendingAction] = useState('');
   const [customMessage, setCustomMessage] = useState('');
+  const { isSuperAdmin } = useCurrentUser();
 
   useEffect(() => {
     if (!isOpen || !order) return;
 
     setActionMessage('');
     setCustomMessage('');
+
+    if (!isSuperAdmin) return;
 
     const fetchAuditLog = async () => {
       try {
@@ -46,7 +50,7 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
     };
 
     fetchAuditLog();
-  }, [isOpen, order]);
+  }, [isOpen, order, isSuperAdmin]);
 
   if (!isOpen || !order) return null;
 
@@ -237,6 +241,7 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
           {actionMessage && <p style={actionMessageStyle}>{actionMessage}</p>}
         </section>
 
+        {isSuperAdmin && (
         <section style={sectionStyle}>
           <h3 style={sectionTitleStyle}>Activity Log</h3>
           {isLoadingAuditLog ? (
@@ -259,6 +264,7 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
             </ul>
           )}
         </section>
+        )}
       </div>
     </div>
   );

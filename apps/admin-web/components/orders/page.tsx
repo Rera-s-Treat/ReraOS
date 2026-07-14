@@ -5,12 +5,18 @@ import { CreateOrderModal } from './CreateOrderModal';
 import { OrderStatusModal } from './OrderStatusModal';
 import { OrderDetailsDrawer } from './OrderDetailsDrawer';
 import { getOrders } from '../../services/orders.services';
-import { FulfillmentStatus, Order, PaymentStatus } from '../../types/order';
+import {
+  FulfillmentStatus,
+  KitchenStatus,
+  Order,
+  PaymentStatus,
+} from '../../types/order';
 
 interface FilterState {
   search: string;
   paymentStatus: PaymentStatus | '';
   fulfillmentStatus: FulfillmentStatus | '';
+  kitchenStatus: KitchenStatus | '';
   dateFrom: string;
   dateTo: string;
 }
@@ -19,6 +25,7 @@ const initialFilters: FilterState = {
   search: '',
   paymentStatus: '',
   fulfillmentStatus: '',
+  kitchenStatus: '',
   dateFrom: '',
   dateTo: '',
 };
@@ -38,6 +45,13 @@ const fulfillmentStatusOptions: FulfillmentStatus[] = [
   'CANCELLED',
 ];
 
+const kitchenStatusOptions: KitchenStatus[] = [
+  'NOT_STARTED',
+  'KITCHEN_INFORMED',
+  'PREPARING',
+  'READY',
+];
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -55,6 +69,7 @@ export default function OrdersPage() {
         search: activeFilters.search.trim() || undefined,
         paymentStatus: activeFilters.paymentStatus || undefined,
         fulfillmentStatus: activeFilters.fulfillmentStatus || undefined,
+        kitchenStatus: activeFilters.kitchenStatus || undefined,
         dateFrom: activeFilters.dateFrom || undefined,
         dateTo: activeFilters.dateTo || undefined,
       });
@@ -138,6 +153,20 @@ export default function OrdersPage() {
           ))}
         </select>
 
+        <select
+          name="kitchenStatus"
+          value={filters.kitchenStatus}
+          onChange={handleFilterChange}
+          style={filterInputStyle}
+        >
+          <option value="">All kitchen statuses</option>
+          {kitchenStatusOptions.map((status) => (
+            <option key={status} value={status}>
+              {status}
+            </option>
+          ))}
+        </select>
+
         <input
           type="date"
           name="dateFrom"
@@ -183,6 +212,7 @@ export default function OrdersPage() {
                 <th style={thStyle}>Items</th>
                 <th style={thStyle}>Total</th>
                 <th style={thStyle}>Payment</th>
+                <th style={thStyle}>Kitchen</th>
                 <th style={thStyle}>Fulfillment</th>
                 <th style={thStyle}>Created</th>
                 <th style={thStyle}>Actions</th>
@@ -222,6 +252,11 @@ export default function OrdersPage() {
                           Customer says paid
                         </div>
                       )}
+                  </td>
+                  <td style={tdStyle}>
+                    <span style={badgeStyle(order.kitchenStatus)}>
+                      {order.kitchenStatus}
+                    </span>
                   </td>
                   <td style={tdStyle}>
                     <span style={badgeStyle(order.fulfillmentStatus)}>
