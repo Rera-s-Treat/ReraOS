@@ -49,6 +49,7 @@ export class WhatsappSessionsRepository {
       orderType?: OrderType;
       cartItems?: Prisma.InputJsonValue;
       deliveryAddress?: string;
+      tableNumber?: string;
       notes?: string;
     },
   ) {
@@ -72,6 +73,9 @@ export class WhatsappSessionsRepository {
           : {}),
         ...(data.deliveryAddress !== undefined
           ? { deliveryAddress: data.deliveryAddress }
+          : {}),
+        ...(data.tableNumber !== undefined
+          ? { tableNumber: data.tableNumber }
           : {}),
         ...(data.notes !== undefined ? { notes: data.notes } : {}),
         lastMessageAt: new Date(),

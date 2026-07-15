@@ -58,6 +58,11 @@ export class UpdateSessionDto {
   @IsString()
   deliveryAddress?: string;
 
+  @ApiPropertyOptional({ example: 'Table 4' })
+  @IsOptional()
+  @IsString()
+  tableNumber?: string;
+
   @ApiPropertyOptional({ example: 'No pepper please' })
   @IsOptional()
   @IsString()

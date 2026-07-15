@@ -70,6 +70,7 @@ export class WhatsappSessionsService {
         | Prisma.InputJsonValue
         | undefined,
       deliveryAddress: dto.deliveryAddress,
+      tableNumber: dto.tableNumber,
       notes: dto.notes,
     });
   }
@@ -97,6 +98,12 @@ export class WhatsappSessionsService {
       );
     }
 
+    if (session.orderType === 'DINE_IN' && !session.tableNumber) {
+      throw new BadRequestException(
+        'Table number is required for dine-in orders',
+      );
+    }
+
     const cartItems = (session.cartJson as unknown as CartItemDto[]) ?? [];
 
     if (cartItems.length === 0) {
@@ -110,6 +117,7 @@ export class WhatsappSessionsService {
       channel: OrderChannel.WEBSITE,
       orderType: session.orderType,
       deliveryAddress: session.deliveryAddress ?? undefined,
+      tableNumber: session.tableNumber ?? undefined,
       notes: session.notes ?? undefined,
       items: cartItems.map((item) => ({
         productId: item.productId,

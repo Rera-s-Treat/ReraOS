@@ -437,6 +437,7 @@ model WhatsappSession {
   orderType         OrderType?
   cartJson          Json?
   deliveryAddress   String?
+  tableNumber       String?
   notes             String?
 
   lastMessageAt     DateTime?
