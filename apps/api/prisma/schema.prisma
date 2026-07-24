@@ -68,6 +68,41 @@ enum FulfillmentStatus {
   CANCELLED
 }
 
+enum CommunityTown {
+  OGIJO
+  ITAOLUWO
+  SHIMAWA
+  ODONGUYAN
+  LUKOSI
+}
+
+enum CommunityMenuInterest {
+  SMALL_CHOPS
+  FINGER_FOODS
+  PASTA
+  DRINKS
+}
+
+model CommunityMember {
+  id               String                 @id @default(uuid())
+
+  name             String
+  phone            String?
+  email            String?
+
+  town             CommunityTown
+  menuInterest     CommunityMenuInterest?
+
+  welcomeSentAt    DateTime?
+  welcomeSendError String?
+
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  @@index([town])
+  @@index([createdAt])
+}
+
 model User {
   id                  String            @id @default(uuid())
   email               String            @unique

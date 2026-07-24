@@ -10,6 +10,7 @@ import { WhatsappSessionsModule } from './modules/whatsapp/whatsapp-sessions.mod
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { CategoriesModule } from './modules/categories/categories.module';
+import { CommunityModule } from './modules/community/community.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { CategoriesModule } from './modules/categories/categories.module';
     DashboardModule,
     CustomersModule,
     CategoriesModule,
+    CommunityModule,
   ],
 })
 export class AppModule {}

@@ -19,6 +19,7 @@ const navItems = [
   { label: 'Products', href: '/dashboard/products' },
   { label: 'Orders', href: '/dashboard/orders' },
   { label: 'Customers', href: '/dashboard/customers' },
+  { label: 'Community', href: '/dashboard/community' },
   { label: 'Inventory', href: '/dashboard/inventory' },
   { label: 'Settings', href: '/dashboard/settings' },
 ];
@@ -43,6 +44,10 @@ const pageMeta: Record<string, { title: string; subtitle: string }> = {
   '/dashboard/customers': {
     title: 'Customers',
     subtitle: 'See who your customers are and how they order.',
+  },
+  '/dashboard/community': {
+    title: 'Community',
+    subtitle: 'Everyone who signed up to join the Rera’s Treat community.',
   },
   '/dashboard/analytics': {
     title: 'Analytics',
