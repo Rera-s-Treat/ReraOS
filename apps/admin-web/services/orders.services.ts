@@ -64,36 +64,36 @@ export const updateFulfillmentStatus = async (
   return response.data;
 };
 
-export const sendWhatsappConfirmation = async (
+export const sendOrderConfirmation = async (
   id: string,
 ): Promise<{ success: boolean }> => {
   const response = await axiosInstance.post(
-    `/orders/${id}/whatsapp/confirmation`,
+    `/orders/${id}/notify/confirmation`,
   );
   return response.data;
 };
 
-export const sendWhatsappPaymentInstruction = async (
+export const sendOrderPaymentInstruction = async (
   id: string,
 ): Promise<{ success: boolean }> => {
   const response = await axiosInstance.post(
-    `/orders/${id}/whatsapp/payment-instruction`,
+    `/orders/${id}/notify/payment-instruction`,
   );
   return response.data;
 };
 
-export const sendWhatsappReady = async (
+export const sendOrderReady = async (
   id: string,
 ): Promise<{ success: boolean }> => {
-  const response = await axiosInstance.post(`/orders/${id}/whatsapp/ready`);
+  const response = await axiosInstance.post(`/orders/${id}/notify/ready`);
   return response.data;
 };
 
-export const sendWhatsappUpdate = async (
+export const sendOrderUpdate = async (
   id: string,
   message?: string,
 ): Promise<{ success: boolean }> => {
-  const response = await axiosInstance.post(`/orders/${id}/whatsapp/update`, {
+  const response = await axiosInstance.post(`/orders/${id}/notify/update`, {
     message,
   });
   return response.data;

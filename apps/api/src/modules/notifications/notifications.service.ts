@@ -24,7 +24,7 @@ const RESEND_DEFAULT_FROM = "Rera's Treat <onboarding@resend.dev>";
 const BREVO_SMS_API_URL = 'https://api.brevo.com/v3/transactionalSMS/sms';
 const BREVO_DEFAULT_SENDER = 'RerasTreat';
 
-export type WhatsappMessageType =
+export type OrderNotificationType =
   | 'confirmation'
   | 'payment-instruction'
   | 'ready'
@@ -749,7 +749,7 @@ We're sorry this one didn't make it to you — we hope we get another chance to 
 
   async sendOrderStatusMessage(
     order: NotifiableOrder,
-    type: WhatsappMessageType,
+    type: OrderNotificationType,
     customMessage?: string,
   ): Promise<void> {
     switch (type) {

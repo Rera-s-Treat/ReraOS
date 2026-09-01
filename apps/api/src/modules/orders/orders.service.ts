@@ -12,7 +12,7 @@ import { PrismaService } from '../../common/prisma.service';
 import { VIP_ORDER_THRESHOLD } from '../customers/customers.constants';
 import {
   NotificationsService,
-  WhatsappMessageType,
+  OrderNotificationType,
 } from '../notifications/notifications.service';
 import { ProductsRepository } from '../products/products.repository';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -395,9 +395,9 @@ export class OrdersService {
     return order;
   }
 
-  async sendWhatsAppNotification(
+  async sendOrderNotification(
     id: string,
-    type: WhatsappMessageType,
+    type: OrderNotificationType,
     customMessage?: string,
   ) {
     const order = await this.getOrderById(id);

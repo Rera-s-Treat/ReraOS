@@ -5,10 +5,10 @@ import { useCurrentUser } from '@/contexts/CurrentUserContext';
 import { Order, OrderAuditLogEntry } from '../../types/order';
 import {
   getOrderAuditLog,
-  sendWhatsappConfirmation,
-  sendWhatsappPaymentInstruction,
-  sendWhatsappReady,
-  sendWhatsappUpdate,
+  sendOrderConfirmation,
+  sendOrderPaymentInstruction,
+  sendOrderReady,
+  sendOrderUpdate,
 } from '../../services/orders.services';
 
 interface OrderDetailsDrawerProps {
@@ -62,7 +62,7 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
       setIsSendingAction(key);
       setActionMessage('');
       await action();
-      setActionMessage('Message sent (see server logs if WhatsApp is not yet configured).');
+      setActionMessage('Message sent (see server logs if SMS/email is not yet configured).');
     } catch (err: any) {
       setActionMessage(
         err?.response?.data?.message || 'Failed to send message',
@@ -179,14 +179,14 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
         </section>
 
         <section style={sectionStyle}>
-          <h3 style={sectionTitleStyle}>WhatsApp Actions</h3>
+          <h3 style={sectionTitleStyle}>Customer Notifications</h3>
           <div style={actionRowStyle}>
             <button
               style={actionBtnStyle}
               disabled={isSendingAction !== ''}
               onClick={() =>
                 runAction('confirmation', () =>
-                  sendWhatsappConfirmation(order.id),
+                  sendOrderConfirmation(order.id),
                 )
               }
             >
@@ -197,7 +197,7 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
               disabled={isSendingAction !== ''}
               onClick={() =>
                 runAction('payment-instruction', () =>
-                  sendWhatsappPaymentInstruction(order.id),
+                  sendOrderPaymentInstruction(order.id),
                 )
               }
             >
@@ -209,7 +209,7 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
               style={actionBtnStyle}
               disabled={isSendingAction !== ''}
               onClick={() =>
-                runAction('ready', () => sendWhatsappReady(order.id))
+                runAction('ready', () => sendOrderReady(order.id))
               }
             >
               {isSendingAction === 'ready' ? 'Sending...' : 'Send Order-Ready'}
@@ -228,7 +228,7 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
               disabled={isSendingAction !== ''}
               onClick={() =>
                 runAction('update', () =>
-                  sendWhatsappUpdate(order.id, customMessage.trim() || undefined),
+                  sendOrderUpdate(order.id, customMessage.trim() || undefined),
                 )
               }
             >
