@@ -8,8 +8,6 @@ import { forgotPassword } from '../../services/auth.services';
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
-  const [resetToken, setResetToken] = useState('');
-  const [expiresAt, setExpiresAt] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -25,14 +23,10 @@ export default function ForgotPasswordPage() {
       setIsSubmitting(true);
       setError('');
       setMessage('');
-      setResetToken('');
-      setExpiresAt('');
 
       const response = await forgotPassword(email.trim());
 
       setMessage(response.message);
-      setResetToken(response.resetToken ?? '');
-      setExpiresAt(response.expiresAt ?? '');
     } catch (err: any) {
       setError(
         err?.response?.data?.message || 'Failed to generate reset password link',
@@ -66,26 +60,6 @@ export default function ForgotPasswordPage() {
 
           {error ? <p style={errorStyle}>{error}</p> : null}
           {message ? <p style={successStyle}>{message}</p> : null}
-
-          {resetToken ? (
-            <div style={devBoxStyle}>
-              <p style={{ marginBottom: 8, fontWeight: 600 }}>
-                Dev reset token
-              </p>
-              <p style={tokenStyle}>{resetToken}</p>
-
-              {expiresAt ? (
-                <p style={expiresStyle}>Expires at: {expiresAt}</p>
-              ) : null}
-
-              <Link
-                href={`/reset-password?token=${encodeURIComponent(resetToken)}`}
-                style={resetLinkStyle}
-              >
-                Continue to Reset Password
-              </Link>
-            </div>
-          ) : null}
 
           <button type="submit" disabled={isSubmitting} style={buttonStyle}>
             {isSubmitting ? 'Generating...' : 'Send Reset Link'}
@@ -166,36 +140,6 @@ const errorStyle: React.CSSProperties = {
 const successStyle: React.CSSProperties = {
   color: '#027a48',
   marginBottom: 16,
-};
-
-const devBoxStyle: React.CSSProperties = {
-  background: '#f8f9fc',
-  border: '1px solid #e4e7ec',
-  borderRadius: 8,
-  padding: 16,
-  marginBottom: 16,
-};
-
-const tokenStyle: React.CSSProperties = {
-  margin: 0,
-  wordBreak: 'break-word',
-  fontFamily: 'monospace',
-  fontSize: 13,
-};
-
-const expiresStyle: React.CSSProperties = {
-  marginTop: 12,
-  marginBottom: 16,
-  fontSize: 12,
-  color: '#667085',
-};
-
-const resetLinkStyle: React.CSSProperties = {
-  display: 'inline-block',
-  marginTop: 8,
-  color: '#1A1A1A',
-  fontWeight: 600,
-  textDecoration: 'underline',
 };
 
 const footerStyle: React.CSSProperties = {

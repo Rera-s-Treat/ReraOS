@@ -63,13 +63,14 @@ export class AuthController {
   }
 
   @Post('forgot-password')
-  @ApiOperation({ summary: 'Generate a password reset token for a user' })
-  @ApiOkResponse({
-    description: 'Password reset token generated successfully',
+  @ApiOperation({
+    summary: 'Email a password reset link to the user, if the account exists',
   })
-  async forgotPassword(
-    @Body(new ValidationPipe()) body: ForgotPasswordDto,
-  ) {
+  @ApiOkResponse({
+    description:
+      'A generic confirmation message, regardless of whether the email matched an account',
+  })
+  async forgotPassword(@Body(new ValidationPipe()) body: ForgotPasswordDto) {
     return this.authService.forgotPassword(body);
   }
 
@@ -81,9 +82,7 @@ export class AuthController {
   @ApiBadRequestResponse({
     description: 'Invalid or expired reset token',
   })
-  async resetPassword(
-    @Body(new ValidationPipe()) body: ResetPasswordDto,
-  ) {
+  async resetPassword(@Body(new ValidationPipe()) body: ResetPasswordDto) {
     return this.authService.resetPassword(body);
   }
 

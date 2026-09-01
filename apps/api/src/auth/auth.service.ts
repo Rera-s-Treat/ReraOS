@@ -9,10 +9,14 @@ import { AuditAction } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 import { RolesService } from '../modules/roles/roles.service';
+import { NotificationsService } from '../modules/notifications/notifications.service';
 import { AuthRepository } from './auth.repository';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import type { JwtPayload } from './interfaces/jwt-payload.interface';
+
+const ADMIN_WEB_ORIGIN =
+  process.env.ADMIN_WEB_ORIGIN || 'https://rerastreat.com.ng/admin';
 
 interface RegisterPayload {
   email: string;
@@ -29,6 +33,7 @@ export class AuthService {
     private readonly authRepository: AuthRepository,
     private readonly jwtService: JwtService,
     private readonly rolesService: RolesService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async hashPassword(password: string): Promise<string> {
@@ -163,16 +168,17 @@ export class AuthService {
       passwordResetExpiresAt,
     );
 
-    /**
-     * Dev mode response:
-     * we return the token for now so you can test the flow
-     * before wiring email delivery.
-     */
+    const resetLink = `${ADMIN_WEB_ORIGIN}/reset-password?token=${resetToken}`;
+
+    await this.notificationsService.sendEmail(
+      user.email,
+      'Reset your ReraOS password',
+      `Hi ${user.firstName},\n\nSomeone (hopefully you) requested a password reset for your ReraOS admin account.\n\nReset it here: ${resetLink}\n\nThis link expires in 1 hour. If you didn't request this, you can ignore this email.\n\nReraOS`,
+    );
+
     return {
       message:
         'If an account with that email exists, a password reset link has been generated.',
-      resetToken,
-      expiresAt: passwordResetExpiresAt,
     };
   }
 

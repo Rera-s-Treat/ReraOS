@@ -2,8 +2,6 @@ import axiosInstance from './axios';
 
 export interface ForgotPasswordResponse {
   message: string;
-  resetToken?: string;
-  expiresAt?: string;
 }
 
 export const forgotPassword = async (
