@@ -10,6 +10,14 @@ import { EventsService } from './events.service';
 export class EventsPublicController {
   constructor(private readonly eventsService: EventsService) {}
 
+  @Get('featured')
+  @ApiOperation({
+    summary: 'Get the one published, RSVP-open event to promote on the website (or null)',
+  })
+  async getFeaturedEvent() {
+    return this.eventsService.getFeaturedEvent();
+  }
+
   @Get(':slug')
   @ApiOperation({ summary: 'Get a published event by slug, for the public RSVP page' })
   async getPublicEvent(@Param('slug') slug: string) {

@@ -125,6 +125,45 @@ export class EventsService {
     return updated;
   }
 
+  /**
+   * The one published, RSVP-open, not-yet-full event to promote to website
+   * visitors as a popup. Prefers the soonest upcoming eventDate; falls back
+   * to the most recently published event when dates aren't set.
+   */
+  async getFeaturedEvent() {
+    const candidates = await this.prisma.event.findMany({
+      where: { status: EventStatus.PUBLISHED, rsvpOpen: true },
+      include: { _count: { select: { rsvps: true } } },
+    });
+
+    const open = candidates.filter(
+      (event) => !event.capacity || event._count.rsvps < event.capacity,
+    );
+
+    if (open.length === 0) {
+      return null;
+    }
+
+    open.sort((a, b) => {
+      if (a.eventDate && b.eventDate) {
+        return a.eventDate.getTime() - b.eventDate.getTime();
+      }
+      if (a.eventDate) return -1;
+      if (b.eventDate) return 1;
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    });
+
+    const event = open[0];
+
+    return {
+      title: event.title,
+      slug: event.slug,
+      description: event.description,
+      eventDate: event.eventDate,
+      location: event.location,
+    };
+  }
+
   async getPublicEvent(slug: string) {
     const event = await this.prisma.event.findUnique({
       where: { slug },
