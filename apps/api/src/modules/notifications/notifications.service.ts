@@ -14,15 +14,15 @@ import { PrismaService } from '../../common/prisma.service';
 const STAFF_EMAIL = process.env.STAFF_NOTIFICATION_EMAIL || 'rerastreat@gmail.com';
 const ADMIN_CC_EMAIL =
   process.env.ADMIN_NOTIFICATION_CC_EMAIL || 'adeeyotemitope5@gmail.com';
-const STAFF_WHATSAPP_NUMBER =
-  process.env.STAFF_NOTIFICATION_WHATSAPP_NUMBER || '09124800610';
+const STAFF_SMS_NUMBER =
+  process.env.STAFF_NOTIFICATION_PHONE || '09124800610';
+const PICKUP_LOCATION = process.env.PICKUP_LOCATION_LABEL || 'Ogijo, Ogun State';
 
 const RESEND_API_URL = 'https://api.resend.com/emails';
 const RESEND_DEFAULT_FROM = "Rera's Treat <onboarding@resend.dev>";
 
-function twilioMessagesUrl(accountSid: string): string {
-  return `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
-}
+const BREVO_SMS_API_URL = 'https://api.brevo.com/v3/transactionalSMS/sms';
+const BREVO_DEFAULT_SENDER = 'RerasTreat';
 
 export type WhatsappMessageType =
   | 'confirmation'
@@ -38,14 +38,9 @@ interface NotifiableOrder {
   customerEmail?: string | null;
   channel: string;
   orderType?: string;
+  deliveryAddress?: string | null;
   totalAmount: unknown;
   items: Array<{ quantity: number; product: { name: string } }>;
-}
-
-interface WhatsappTemplateVariables {
-  '1': string;
-  '2': string;
-  '3': string;
 }
 
 interface DispatchAdminPayload {
@@ -60,11 +55,11 @@ interface DispatchCustomerPayload {
   type: NotificationType;
   category: NotificationCategory;
   title: string;
-  message: string;
+  emailBody: string;
+  smsBody: string;
   orderId?: string;
   recipientPhone?: string | null;
   recipientEmail?: string | null;
-  whatsappVariables: WhatsappTemplateVariables;
 }
 
 function formatNaira(amount: unknown): string {
@@ -75,10 +70,11 @@ function summarizeItems(items: NotifiableOrder['items']): string {
   return items.map((item) => `${item.quantity}× ${item.product.name}`).join(', ');
 }
 
-function readyMessageForOrderType(orderType?: string): string {
-  if (orderType === 'DELIVERY') return 'Your order is out for delivery!';
-  if (orderType === 'PICKUP') return 'Your order is ready for pickup!';
-  return 'Your order is ready to be served!';
+function fulfillmentLine(order: NotifiableOrder): string {
+  if (order.orderType === 'DELIVERY') {
+    return `Delivering to:\n${order.deliveryAddress || 'the address you provided'}`;
+  }
+  return `Pickup location:\n${PICKUP_LOCATION}`;
 }
 
 @Injectable()
@@ -91,13 +87,8 @@ export class NotificationsService {
     return Boolean(process.env.RESEND_API_KEY);
   }
 
-  private get isWhatsAppConfigured(): boolean {
-    return Boolean(
-      process.env.TWILIO_ACCOUNT_SID &&
-        process.env.TWILIO_AUTH_TOKEN &&
-        process.env.TWILIO_WHATSAPP_FROM &&
-        process.env.TWILIO_CONTENT_SID,
-    );
+  private get isSmsConfigured(): boolean {
+    return Boolean(process.env.BREVO_API_KEY);
   }
 
   private async sendEmailRaw(
@@ -143,50 +134,43 @@ export class NotificationsService {
     }
   }
 
-  private async sendWhatsAppRaw(
+  private async sendSmsRaw(
     to: string,
-    variables: WhatsappTemplateVariables,
-  ): Promise<boolean> {
-    if (!this.isWhatsAppConfigured) {
+    message: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!this.isSmsConfigured) {
       this.logger.warn(
-        `[WhatsApp skipped - no Twilio credentials configured] To: ${to} | Variables: ${JSON.stringify(variables)}`,
+        `[SMS skipped - no Brevo API key configured] To: ${to} | Message: ${message}`,
       );
-      return false;
+      return { success: false, error: 'Brevo API key not configured' };
     }
 
     try {
-      const accountSid = process.env.TWILIO_ACCOUNT_SID!;
-      const authToken = process.env.TWILIO_AUTH_TOKEN!;
-      const basicAuth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
-
-      const body = new URLSearchParams({
-        To: `whatsapp:+${normalizeNigerianPhoneNumber(to)}`,
-        From: `whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`,
-        ContentSid: process.env.TWILIO_CONTENT_SID!,
-        ContentVariables: JSON.stringify(variables),
-      });
-
-      const response = await fetch(twilioMessagesUrl(accountSid), {
+      const response = await fetch(BREVO_SMS_API_URL, {
         method: 'POST',
         headers: {
-          Authorization: `Basic ${basicAuth}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'api-key': process.env.BREVO_API_KEY!,
+          'Content-Type': 'application/json',
         },
-        body,
+        body: JSON.stringify({
+          sender: process.env.BREVO_SMS_SENDER || BREVO_DEFAULT_SENDER,
+          recipient: normalizeNigerianPhoneNumber(to),
+          content: message,
+          type: 'transactional',
+        }),
       });
 
       const responseBody = await response.text();
 
       if (!response.ok) {
-        this.logger.error(
-          `WhatsApp send to ${to} failed: ${response.status} ${responseBody}`,
-        );
-        return false;
+        this.logger.error(`SMS send to ${to} failed: ${response.status} ${responseBody}`);
+        return { success: false, error: `${response.status}: ${responseBody}` };
       }
-      return true;
+      return { success: true };
     } catch (error) {
-      this.logger.error(`Failed to send WhatsApp message to ${to}`, error as Error);
-      return false;
+      const message = (error as Error).message || String(error);
+      this.logger.error(`Failed to send SMS to ${to}: ${message}`);
+      return { success: false, error: message };
     }
   }
 
@@ -195,8 +179,8 @@ export class NotificationsService {
     await this.sendEmailRaw(to, subject, text);
   }
 
-  async sendWhatsApp(to: string, variables: WhatsappTemplateVariables): Promise<void> {
-    await this.sendWhatsAppRaw(to, variables);
+  async sendSms(to: string, message: string): Promise<void> {
+    await this.sendSmsRaw(to, message);
   }
 
   /**
@@ -224,10 +208,6 @@ export class NotificationsService {
   }
 
   private async deliverAdminEmail(payload: DispatchAdminPayload): Promise<void> {
-    // Resend's sandbox mode (no verified domain) only allows sending to the
-    // account's own signup address — a CC to a second address gets rejected.
-    // Once a domain is verified on resend.com/domains, set
-    // RESEND_DOMAIN_VERIFIED=true to restore the cc.
     const cc = process.env.RESEND_DOMAIN_VERIFIED === 'true' ? ADMIN_CC_EMAIL : undefined;
 
     const result = await this.sendEmailRaw(
@@ -263,14 +243,14 @@ export class NotificationsService {
   }
 
   /**
-   * Fires a customer-facing notification via WhatsApp and/or email, whichever
+   * Fires a customer-facing notification via SMS and/or email, whichever
    * contact info is available. Both deliveries run in the background so a
    * slow/hanging provider never blocks the caller (e.g. order creation).
    */
   async notifyCustomer(payload: DispatchCustomerPayload): Promise<void> {
     if (payload.recipientPhone) {
-      void this.deliverCustomerWhatsapp(payload).catch((error) =>
-        this.logger.error('Unexpected error delivering customer WhatsApp', error as Error),
+      void this.deliverCustomerSms(payload).catch((error) =>
+        this.logger.error('Unexpected error delivering customer SMS', error as Error),
       );
     }
 
@@ -281,31 +261,29 @@ export class NotificationsService {
     }
   }
 
-  private async deliverCustomerWhatsapp(payload: DispatchCustomerPayload): Promise<void> {
-    const sent = await this.sendWhatsAppRaw(
-      payload.recipientPhone!,
-      payload.whatsappVariables,
-    );
+  private async deliverCustomerSms(payload: DispatchCustomerPayload): Promise<void> {
+    const result = await this.sendSmsRaw(payload.recipientPhone!, payload.smsBody);
 
     await this.prisma.notification.create({
       data: {
         type: payload.type,
         category: payload.category,
         audience: NotificationAudience.CUSTOMER,
-        channel: NotificationChannel.WHATSAPP,
-        status: sent
+        channel: NotificationChannel.SMS,
+        status: result.success
           ? NotificationDeliveryStatus.SENT
           : NotificationDeliveryStatus.SKIPPED,
         title: payload.title,
-        message: payload.message,
+        message: payload.smsBody,
         recipientPhone: payload.recipientPhone,
         orderId: payload.orderId,
+        errorMessage: result.error,
       },
     });
 
-    if (!sent) {
+    if (!result.success) {
       await this.recordDeliveryFailure(
-        `Customer WhatsApp notification (${payload.type}) to ${payload.recipientPhone} was not sent — Twilio not configured or send failed.`,
+        `Customer SMS notification (${payload.type}) to ${payload.recipientPhone} was not sent: ${result.error}`,
         payload.orderId,
       );
     }
@@ -315,7 +293,7 @@ export class NotificationsService {
     const result = await this.sendEmailRaw(
       payload.recipientEmail!,
       payload.title,
-      payload.message,
+      payload.emailBody,
     );
 
     await this.prisma.notification.create({
@@ -328,7 +306,7 @@ export class NotificationsService {
           ? NotificationDeliveryStatus.SENT
           : NotificationDeliveryStatus.SKIPPED,
         title: payload.title,
-        message: payload.message,
+        message: payload.emailBody,
         recipientEmail: payload.recipientEmail,
         orderId: payload.orderId,
         errorMessage: result.error,
@@ -357,20 +335,39 @@ export class NotificationsService {
 
   async notifyOrderReceived(order: NotifiableOrder): Promise<void> {
     const itemsSummary = summarizeItems(order.items);
+    const total = formatNaira(order.totalAmount);
 
     await this.notifyCustomer({
       type: NotificationType.ORDER_RECEIVED,
       category: NotificationCategory.ORDER,
       title: `Order Received — ${order.orderNumber}`,
-      message: `Hi ${order.customerName}, we've received your order ${order.orderNumber} (${itemsSummary}, ${formatNaira(order.totalAmount)}). We'll let you know once it's confirmed.`,
+      emailBody: `Hi ${order.customerName},
+
+Your order #${order.orderNumber} has landed with us.
+
+You ordered:
+${itemsSummary}
+
+Total: ${total}
+
+We're just confirming your payment. Once that's sorted, we'll get to the important part — making your food.
+
+We'll keep you posted.
+
+Rera's Treat
+Come hungry. We have plenty.`,
+      smsBody: `Hi ${order.customerName} 👋🏽
+
+We got your order #${order.orderNumber}.
+
+Your total is ${total} and we're confirming your payment now.
+
+Once that's done, we'll get cooking.
+
+— Rera's Treat`,
       orderId: order.id,
       recipientPhone: order.customerPhone,
       recipientEmail: order.customerEmail,
-      whatsappVariables: {
-        '1': order.customerName,
-        '2': order.orderNumber,
-        '3': `We've received your order (${itemsSummary}, ${formatNaira(order.totalAmount)}). We'll confirm shortly.`,
-      },
     });
 
     await this.notifyAdmin({
@@ -382,74 +379,181 @@ export class NotificationsService {
         `Customer: ${order.customerName} (${order.customerPhone})`,
         `Channel: ${order.channel}`,
         `Items: ${itemsSummary}`,
-        `Total: ${formatNaira(order.totalAmount)}`,
+        `Total: ${total}`,
       ].join('\n'),
       orderId: order.id,
     });
 
     if (order.channel === 'WHATSAPP' || order.channel === 'WEBSITE') {
-      await this.sendWhatsAppRaw(STAFF_WHATSAPP_NUMBER, {
-        '1': order.customerName,
-        '2': order.orderNumber,
-        '3': `New order! Items: ${itemsSummary}. Total: ${formatNaira(order.totalAmount)}.`,
-      });
+      await this.sendSmsRaw(
+        STAFF_SMS_NUMBER,
+        `New order! #${order.orderNumber} — ${itemsSummary}. Total: ${total}.`,
+      );
     }
   }
 
   async notifyOrderConfirmed(order: NotifiableOrder): Promise<void> {
+    const itemsSummary = summarizeItems(order.items);
+    const total = formatNaira(order.totalAmount);
+
     await this.notifyCustomer({
       type: NotificationType.ORDER_CONFIRMED,
       category: NotificationCategory.ORDER,
       title: `Order Confirmed — ${order.orderNumber}`,
-      message: `Hi ${order.customerName}, your order ${order.orderNumber} has been confirmed! We'll let you know as soon as it's ready.`,
+      emailBody: `Hi ${order.customerName},
+
+Payment received. Order #${order.orderNumber} is officially confirmed.
+
+And now?
+
+We cook. 🍴
+
+Your order:
+${itemsSummary}
+
+Total: ${total}
+
+We'll let you know when it's ready.
+
+Try not to think about the food too much.
+
+Rera's Treat`,
+      smsBody: `Payment received. ✔️
+
+Order #${order.orderNumber} is confirmed, ${order.customerName}.
+
+Now we're cooking. 🍴
+
+We'll let you know when it's ready.
+
+Rera's Treat`,
       orderId: order.id,
       recipientPhone: order.customerPhone,
       recipientEmail: order.customerEmail,
-      whatsappVariables: {
-        '1': order.customerName,
-        '2': order.orderNumber,
-        '3': "Your order has been confirmed! We'll let you know as soon as it's ready.",
-      },
     });
   }
 
   async notifyOrderInPreparation(order: NotifiableOrder): Promise<void> {
+    const itemsSummary = summarizeItems(order.items);
+    const fulfillmentWord = order.orderType === 'DELIVERY' ? 'delivery' : 'pickup';
+
     await this.notifyCustomer({
       type: NotificationType.ORDER_IN_PREPARATION,
       category: NotificationCategory.ORDER,
       title: `Order In Preparation — ${order.orderNumber}`,
-      message: `Hi ${order.customerName}, your order ${order.orderNumber} is now being prepared.`,
+      emailBody: `Hi ${order.customerName},
+
+Your order #${order.orderNumber} is in the kitchen.
+
+We're making it fresh because stale food has no business here.
+
+You're getting:
+${itemsSummary}
+
+We're on it. We'll let you know when it's ready for ${fulfillmentWord}.
+
+In the meantime, consider this your official warning:
+
+You might be hungry by the time it arrives.
+
+Rera's Treat`,
+      smsBody: `Hi ${order.customerName} 🍴
+
+Your order #${order.orderNumber} is in the kitchen.
+
+We're making it fresh because stale food has no business here.
+
+We'll let you know when it's ready for ${fulfillmentWord}.
+
+Rera's Treat`,
       orderId: order.id,
       recipientPhone: order.customerPhone,
       recipientEmail: order.customerEmail,
-      whatsappVariables: {
-        '1': order.customerName,
-        '2': order.orderNumber,
-        '3': 'Your order is now being prepared.',
-      },
     });
   }
 
   async notifyOrderReady(order: NotifiableOrder): Promise<void> {
-    const detail = readyMessageForOrderType(order.orderType);
+    const itemsSummary = summarizeItems(order.items);
     const type =
       order.orderType === 'DELIVERY'
         ? NotificationType.ORDER_OUT_FOR_DELIVERY
         : NotificationType.ORDER_READY;
 
+    if (order.orderType === 'DELIVERY') {
+      await this.notifyCustomer({
+        type,
+        category: NotificationCategory.ORDER,
+        title: `Order Out for Delivery — ${order.orderNumber}`,
+        emailBody: `Hi ${order.customerName},
+
+The food has left us and is making its way to you.
+
+Order #${order.orderNumber} is officially on the way.
+
+Delivering to:
+${order.deliveryAddress || 'the address you provided'}
+
+Keep your phone close so your rider can reach you when they arrive.
+
+And please, don't make the food wait at the door.
+
+Rera's Treat`,
+        smsBody: `Hi ${order.customerName} 👀
+
+Your Rera's Treat order #${order.orderNumber} is on its way.
+
+📍 ${order.deliveryAddress || 'your address'}
+
+Keep your phone close for your rider's call.
+
+Your food is coming. Please don't make it wait. 😌
+
+— Rera's Treat`,
+        orderId: order.id,
+        recipientPhone: order.customerPhone,
+        recipientEmail: order.customerEmail,
+      });
+      return;
+    }
+
     await this.notifyCustomer({
       type,
       category: NotificationCategory.ORDER,
       title: `Order Ready — ${order.orderNumber}`,
-      message: `Hi ${order.customerName}, ${detail} (Order ${order.orderNumber})`,
+      emailBody: `Hi ${order.customerName},
+
+Your order #${order.orderNumber} is ready.
+
+Yes, that means you can stop thinking about it and come get it. 😌
+
+Pickup location:
+${PICKUP_LOCATION}
+
+Order:
+${itemsSummary}
+
+Please have your order number handy when you arrive.
+
+We'll be here.
+
+Rera's Treat
+Come hungry. We have plenty.`,
+      smsBody: `Hi ${order.customerName} 👋🏽
+
+Your order #${order.orderNumber} is ready.
+
+No more waiting. Come get your food. 😌
+
+📍 ${PICKUP_LOCATION}
+
+Order number: #${order.orderNumber}
+
+See you soon.
+
+— Rera's Treat`,
       orderId: order.id,
       recipientPhone: order.customerPhone,
       recipientEmail: order.customerEmail,
-      whatsappVariables: {
-        '1': order.customerName,
-        '2': order.orderNumber,
-        '3': detail,
-      },
     });
   }
 
@@ -458,35 +562,74 @@ export class NotificationsService {
       type: NotificationType.ORDER_COMPLETED,
       category: NotificationCategory.ORDER,
       title: `Order Completed — ${order.orderNumber}`,
-      message: `Hi ${order.customerName}, thanks for ordering from Rera's Treat! Order ${order.orderNumber} is complete. We hope you enjoyed it!`,
+      emailBody: `Hi ${order.customerName},
+
+Order #${order.orderNumber} has been completed.
+
+Now we need to know:
+
+Was it good?
+
+Tell us what you thought. We read every review, and yes, we like the good ones very much. 😌
+
+Until your next order,
+
+Rera's Treat
+Come hungry. We have plenty.`,
+      smsBody: `Hi ${order.customerName} 💛
+
+Order #${order.orderNumber} is complete.
+
+Now, tell us honestly...
+
+How was it? 👀
+
+We'd love to hear from you.
+
+— Rera's Treat`,
       orderId: order.id,
       recipientPhone: order.customerPhone,
       recipientEmail: order.customerEmail,
-      whatsappVariables: {
-        '1': order.customerName,
-        '2': order.orderNumber,
-        '3': "Thanks for ordering from Rera's Treat! We hope you enjoyed it.",
-      },
     });
   }
 
   async notifyOrderCancelled(order: NotifiableOrder, reason?: string): Promise<void> {
-    const detail =
-      reason || "Your order was cancelled. Please contact us if you have questions.";
+    const itemsSummary = summarizeItems(order.items);
+    const total = formatNaira(order.totalAmount);
+    const cancellationReason = reason || 'Please contact us if you have questions.';
 
     await this.notifyCustomer({
       type: NotificationType.ORDER_REJECTED,
       category: NotificationCategory.ORDER,
       title: `Order Cancelled — ${order.orderNumber}`,
-      message: `Hi ${order.customerName}, order ${order.orderNumber} was cancelled. ${detail}`,
+      emailBody: `Hi ${order.customerName},
+
+Your order #${order.orderNumber} has been cancelled.
+
+Order:
+${itemsSummary}
+
+Total: ${total}
+
+Reason: ${cancellationReason}
+
+We're sorry this one didn't make it to you.
+
+We hope we get another chance to feed you soon.
+
+Rera's Treat`,
+      smsBody: `Hi ${order.customerName},
+
+Your order #${order.orderNumber} has been cancelled.
+
+Reason: ${cancellationReason}
+
+We're sorry this one didn't make it to you — we hope we get another chance to feed you soon.
+
+— Rera's Treat`,
       orderId: order.id,
       recipientPhone: order.customerPhone,
       recipientEmail: order.customerEmail,
-      whatsappVariables: {
-        '1': order.customerName,
-        '2': order.orderNumber,
-        '3': detail,
-      },
     });
 
     await this.notifyAdmin({
@@ -509,15 +652,11 @@ export class NotificationsService {
       type: NotificationType.PAYMENT_INSTRUCTIONS_SENT,
       category: NotificationCategory.PAYMENT,
       title: `Payment Instructions — ${order.orderNumber}`,
-      message: `Hi ${order.customerName}, ${detail}`,
+      emailBody: `Hi ${order.customerName},\n\n${detail}`,
+      smsBody: `Hi ${order.customerName}, ${detail}`,
       orderId: order.id,
       recipientPhone: order.customerPhone,
       recipientEmail: order.customerEmail,
-      whatsappVariables: {
-        '1': order.customerName,
-        '2': order.orderNumber,
-        '3': detail,
-      },
     });
   }
 
@@ -544,15 +683,11 @@ export class NotificationsService {
       type: NotificationType.PAYMENT_RECEIVED,
       category: NotificationCategory.PAYMENT,
       title: `Payment Received — ${order.orderNumber}`,
-      message: `Hi ${order.customerName}, we've received and verified your payment for order ${order.orderNumber}. Thank you!`,
+      emailBody: `Hi ${order.customerName},\n\nWe've received and verified your payment for order #${order.orderNumber}. Thank you!\n\nRera's Treat`,
+      smsBody: `Hi ${order.customerName}, we've received and verified your payment for order #${order.orderNumber}. Thank you! — Rera's Treat`,
       orderId: order.id,
       recipientPhone: order.customerPhone,
       recipientEmail: order.customerEmail,
-      whatsappVariables: {
-        '1': order.customerName,
-        '2': order.orderNumber,
-        '3': "We've received and verified your payment. Thank you!",
-      },
     });
   }
 
@@ -561,15 +696,11 @@ export class NotificationsService {
       type: NotificationType.PAYMENT_FAILED,
       category: NotificationCategory.PAYMENT,
       title: `Payment Not Confirmed — ${order.orderNumber}`,
-      message: `Hi ${order.customerName}, we couldn't confirm your payment for order ${order.orderNumber}. Please contact us or try again.`,
+      emailBody: `Hi ${order.customerName},\n\nWe couldn't confirm your payment for order #${order.orderNumber}. Please contact us or try again.\n\nRera's Treat`,
+      smsBody: `Hi ${order.customerName}, we couldn't confirm your payment for order #${order.orderNumber}. Please contact us or try again. — Rera's Treat`,
       orderId: order.id,
       recipientPhone: order.customerPhone,
       recipientEmail: order.customerEmail,
-      whatsappVariables: {
-        '1': order.customerName,
-        '2': order.orderNumber,
-        '3': "We couldn't confirm your payment. Please contact us or try again.",
-      },
     });
 
     await this.notifyAdmin({
@@ -582,26 +713,24 @@ export class NotificationsService {
   }
 
   async notifyRefundProcessed(order: NotifiableOrder): Promise<void> {
+    const total = formatNaira(order.totalAmount);
+
     await this.notifyCustomer({
       type: NotificationType.REFUND_PROCESSED,
       category: NotificationCategory.PAYMENT,
       title: `Refund Processed — ${order.orderNumber}`,
-      message: `Hi ${order.customerName}, your refund for order ${order.orderNumber} (${formatNaira(order.totalAmount)}) has been processed.`,
+      emailBody: `Hi ${order.customerName},\n\nYour refund for order #${order.orderNumber} (${total}) has been processed.\n\nRera's Treat`,
+      smsBody: `Hi ${order.customerName}, your refund of ${total} for order #${order.orderNumber} has been processed. — Rera's Treat`,
       orderId: order.id,
       recipientPhone: order.customerPhone,
       recipientEmail: order.customerEmail,
-      whatsappVariables: {
-        '1': order.customerName,
-        '2': order.orderNumber,
-        '3': `Your refund of ${formatNaira(order.totalAmount)} has been processed.`,
-      },
     });
 
     await this.notifyAdmin({
       type: NotificationType.REFUND_PROCESSED,
       category: NotificationCategory.PAYMENT,
       title: `Refund Processed — ${order.orderNumber}`,
-      message: `Refund processed for order ${order.orderNumber} (${order.customerName}, ${formatNaira(order.totalAmount)}).`,
+      message: `Refund processed for order ${order.orderNumber} (${order.customerName}, ${total}).`,
       orderId: order.id,
     });
   }
@@ -642,15 +771,11 @@ export class NotificationsService {
           type: NotificationType.CUSTOM_UPDATE,
           category: NotificationCategory.ORDER,
           title: `Order Update — ${order.orderNumber}`,
-          message: `Hi ${order.customerName}, ${detail}`,
+          emailBody: `Hi ${order.customerName},\n\n${detail}\n\nRera's Treat`,
+          smsBody: `Hi ${order.customerName}, ${detail} — Rera's Treat`,
           orderId: order.id,
           recipientPhone: order.customerPhone,
           recipientEmail: order.customerEmail,
-          whatsappVariables: {
-            '1': order.customerName,
-            '2': order.orderNumber,
-            '3': detail,
-          },
         });
         return;
       }

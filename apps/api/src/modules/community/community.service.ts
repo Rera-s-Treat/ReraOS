@@ -20,8 +20,8 @@ Talk soon,
 Rera's Treat`;
 }
 
-function welcomeWhatsappMessage(): string {
-  return "You're in 🎉 Welcome to the Rera's Treat community! You'll be first to hear about our opening, early perks, and menu decisions. Glad you're building this with us.";
+function welcomeSmsMessage(name: string): string {
+  return `Hi ${name}, you're in 🎉 Welcome to the Rera's Treat community! You'll be first to hear about our opening, early perks, and menu decisions. — Rera's Treat`;
 }
 
 @Injectable()
@@ -80,11 +80,7 @@ export class CommunityService {
       }
     } else {
       try {
-        await this.notificationsService.sendWhatsApp(contact, {
-          '1': name,
-          '2': 'Community',
-          '3': welcomeWhatsappMessage(),
-        });
+        await this.notificationsService.sendSms(contact, welcomeSmsMessage(name));
       } catch (err) {
         error = (err as Error).message || String(err);
       }
