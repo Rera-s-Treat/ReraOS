@@ -416,4 +416,30 @@ export class OrdersService {
 
     return this.ordersRepository.findAuditLogs(id);
   }
+
+  /**
+   * Public order lookup by order number, for the customer-facing tracking
+   * page. Deliberately returns only what a customer needs to see - no
+   * phone/email, internal id, or audit trail.
+   */
+  async trackOrder(orderNumber: string) {
+    const order = await this.ordersRepository.findByOrderNumber(orderNumber);
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    return {
+      orderNumber: order.orderNumber,
+      customerName: order.customerName,
+      orderType: order.orderType,
+      status: computeUnifiedStatus(order),
+      totalAmount: order.totalAmount,
+      createdAt: order.createdAt,
+      items: order.items.map((item) => ({
+        name: item.product.name,
+        quantity: item.quantity,
+      })),
+    };
+  }
 }

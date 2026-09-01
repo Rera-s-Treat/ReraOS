@@ -81,6 +81,13 @@ export class OrdersRepository {
     });
   }
 
+  async findByOrderNumber(orderNumber: string) {
+    return this.prisma.order.findUnique({
+      where: { orderNumber },
+      include: orderInclude,
+    });
+  }
+
   async create(data: {
     orderNumber: string;
     customerName: string;

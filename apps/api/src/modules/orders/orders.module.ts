@@ -3,13 +3,14 @@ import { Module } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import { ProductsModule } from '../products/products.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { OrderTrackingController } from './order-tracking.controller';
 import { OrdersController } from './orders.controller';
 import { OrdersRepository } from './orders.repository';
 import { OrdersService } from './orders.service';
 
 @Module({
   imports: [ProductsModule, NotificationsModule],
-  controllers: [OrdersController],
+  controllers: [OrdersController, OrderTrackingController],
   providers: [OrdersService, OrdersRepository, PrismaService],
   exports: [OrdersService],
 })
