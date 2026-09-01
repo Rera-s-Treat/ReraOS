@@ -11,6 +11,9 @@ export interface Customer {
   lastOrderAt: string;
   tags: string[];
   notes?: string | null;
+  eventsAttended: number;
+  eventRsvps: number;
+  eventInterests: string[];
 }
 
 export interface CustomerFilters {
@@ -68,6 +71,20 @@ export interface CustomerDetail {
     lastOrderedItems: Array<{ productId: string; name: string; quantity: number }>;
   };
   unpaidOrders: CustomerUnpaidOrder[];
+  events: {
+    attended: number;
+    interests: string[];
+    rsvps: Array<{
+      id: string;
+      eventTitle: string;
+      eventSlug: string;
+      eventDate?: string | null;
+      attendanceStatus: string;
+      feedback?: string | null;
+      feedbackRating?: number | null;
+      createdAt: string;
+    }>;
+  };
 }
 
 export interface UpdateCustomerPayload {

@@ -368,6 +368,33 @@ export default function CustomerDetailPage() {
           </div>
         </div>
 
+        {/* Events */}
+        <div style={cardStyle}>
+          <h3 style={cardTitleStyle}>Events &amp; Preferences</h3>
+
+          <p style={subLabelStyle}>Events Attended</p>
+          <p style={{ marginTop: 4, marginBottom: 16 }}>{customer.events.attended}</p>
+
+          <p style={subLabelStyle}>Excited to try (from RSVPs)</p>
+          <p style={{ marginTop: 4, marginBottom: 16 }}>
+            {customer.events.interests.length > 0 ? customer.events.interests.join(', ') : 'N/A'}
+          </p>
+
+          <p style={subLabelStyle}>RSVP History</p>
+          <div style={{ marginTop: 4 }}>
+            {customer.events.rsvps.length === 0 ? (
+              <p style={{ color: '#666', fontSize: 13 }}>No RSVPs yet.</p>
+            ) : (
+              customer.events.rsvps.map((rsvp) => (
+                <div key={rsvp.id} style={productRowStyle}>
+                  <span>{rsvp.eventTitle}</span>
+                  <span style={{ color: '#666' }}>{rsvp.attendanceStatus}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
         {/* Order history */}
         <div style={{ ...cardStyle, gridColumn: '1 / -1' }}>
           <h3 style={cardTitleStyle}>Order History</h3>

@@ -40,3 +40,13 @@ export const updateRsvp = async (
   );
   return response.data;
 };
+
+export const inviteCustomers = async (eventId: string, phones: string[]) => {
+  const response = await axiosInstance.post(`/events/${eventId}/invite`, { phones });
+  return response.data as { invited: number; total: number };
+};
+
+export const sendFeedbackRequests = async (eventId: string) => {
+  const response = await axiosInstance.post(`/events/${eventId}/feedback-requests`);
+  return response.data as { sent: number; total: number };
+};

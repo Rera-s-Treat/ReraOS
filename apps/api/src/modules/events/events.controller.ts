@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { IsArray, IsString } from 'class-validator';
 
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { Roles } from '../../auth/roles.decorator';
@@ -8,6 +9,12 @@ import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { UpdateRsvpDto } from './dto/update-rsvp.dto';
 import { EventsService } from './events.service';
+
+class InviteCustomersDto {
+  @IsArray()
+  @IsString({ each: true })
+  phones!: string[];
+}
 
 @ApiTags('Rera Events')
 @ApiBearerAuth('bearer')
@@ -53,5 +60,19 @@ export class EventsController {
     @Body() body: UpdateRsvpDto,
   ) {
     return this.eventsService.updateRsvp(id, rsvpId, body);
+  }
+
+  @Post(':id/invite')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @ApiOperation({ summary: 'Invite a list of customers (by phone) to this event' })
+  async inviteCustomers(@Param('id') id: string, @Body() body: InviteCustomersDto) {
+    return this.eventsService.inviteCustomers(id, body.phones);
+  }
+
+  @Post(':id/feedback-requests')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @ApiOperation({ summary: 'Send a feedback request to every ATTENDED RSVP without feedback yet' })
+  async sendFeedbackRequests(@Param('id') id: string) {
+    return this.eventsService.sendFeedbackRequests(id);
   }
 }

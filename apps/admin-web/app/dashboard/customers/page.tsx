@@ -186,6 +186,7 @@ export default function CustomersPage() {
                 <th style={thStyle}>Avg Order Value</th>
                 <th style={thStyle}>Last Order</th>
                 <th style={thStyle}>Customer Since</th>
+                <th style={thStyle}>Events Attended</th>
                 <th style={thStyle}>Tags</th>
                 <th style={thStyle}>Actions</th>
               </tr>
@@ -206,6 +207,7 @@ export default function CustomersPage() {
                   <td style={tdStyle}>
                     {new Date(customer.firstOrderAt).toLocaleDateString()}
                   </td>
+                  <td style={tdStyle}>{customer.eventsAttended}</td>
                   <td style={{ ...tdStyle, maxWidth: 180 }}>
                     {customer.tags.map((tag) => (
                       <span key={tag} style={tagBadgeStyle(tag)}>

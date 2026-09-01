@@ -3,7 +3,15 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 
-import { getEventById, updateEvent, updateRsvp } from '@/services/events.services';
+import {
+  getEventById,
+  inviteCustomers,
+  sendFeedbackRequests,
+  updateEvent,
+  updateRsvp,
+} from '@/services/events.services';
+import { getCustomers } from '@/services/customers.services';
+import { Customer } from '@/types/customer';
 import { EventRsvp, EventStatus, RerraEvent, RsvpAttendanceStatus } from '@/types/event';
 
 const PUBLIC_SITE_ORIGIN = 'https://rerastreat.com.ng';
@@ -47,6 +55,20 @@ export default function EventDetailPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [selectedPhones, setSelectedPhones] = useState<Set<string>>(new Set());
+  const [isInviting, setIsInviting] = useState(false);
+  const [inviteMessage, setInviteMessage] = useState('');
+  const [isSendingFeedback, setIsSendingFeedback] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+
+  useEffect(() => {
+    getCustomers()
+      .then(setCustomers)
+      .catch(() => setCustomers([]));
+  }, []);
 
   const fetchEvent = async () => {
     if (!eventId) return;
@@ -122,6 +144,47 @@ export default function EventDetailPage() {
       fetchEvent();
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const togglePhone = (phone: string) => {
+    setSelectedPhones((prev) => {
+      const next = new Set(prev);
+      if (next.has(phone)) {
+        next.delete(phone);
+      } else {
+        next.add(phone);
+      }
+      return next;
+    });
+  };
+
+  const handleInvite = async () => {
+    if (!eventId || selectedPhones.size === 0) return;
+    try {
+      setIsInviting(true);
+      setInviteMessage('');
+      const result = await inviteCustomers(eventId, Array.from(selectedPhones));
+      setInviteMessage(`Invited ${result.invited} of ${result.total} selected customers.`);
+      setSelectedPhones(new Set());
+    } catch (err: any) {
+      setInviteMessage(err?.response?.data?.message || 'Failed to send invites');
+    } finally {
+      setIsInviting(false);
+    }
+  };
+
+  const handleSendFeedbackRequests = async () => {
+    if (!eventId) return;
+    try {
+      setIsSendingFeedback(true);
+      setFeedbackMessage('');
+      const result = await sendFeedbackRequests(eventId);
+      setFeedbackMessage(`Sent ${result.sent} of ${result.total} feedback requests.`);
+    } catch (err: any) {
+      setFeedbackMessage(err?.response?.data?.message || 'Failed to send feedback requests');
+    } finally {
+      setIsSendingFeedback(false);
     }
   };
 
@@ -281,7 +344,20 @@ export default function EventDetailPage() {
       </form>
 
       <div style={cardStyle}>
-        <h2 style={sectionTitleStyle}>Responses, attendance &amp; feedback</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={sectionTitleStyle}>Responses, attendance &amp; feedback</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button
+              type="button"
+              onClick={handleSendFeedbackRequests}
+              disabled={isSendingFeedback}
+              style={secondaryBtnStyle}
+            >
+              {isSendingFeedback ? 'Sending...' : 'Send Feedback Requests'}
+            </button>
+            {feedbackMessage && <span style={{ fontSize: 13, color: '#666' }}>{feedbackMessage}</span>}
+          </div>
+        </div>
 
         {rsvps.length === 0 ? (
           <p style={{ color: '#666' }}>No RSVPs yet.</p>
@@ -308,6 +384,59 @@ export default function EventDetailPage() {
             </table>
           </div>
         )}
+      </div>
+
+      <div style={cardStyle}>
+        <h2 style={sectionTitleStyle}>Invite customers</h2>
+        <p style={{ color: '#666', fontSize: 13, marginTop: -8, marginBottom: 16 }}>
+          Select customers from your order history to invite to this event. Sends the public
+          RSVP link via email and/or SMS.
+        </p>
+
+        <input
+          value={customerSearch}
+          onChange={(e) => setCustomerSearch(e.target.value)}
+          placeholder="Search by name or phone"
+          style={{ ...inputStyle, marginBottom: 12 }}
+        />
+
+        <div style={{ maxHeight: 260, overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 8 }}>
+          {customers
+            .filter((c) => {
+              const term = customerSearch.toLowerCase();
+              return (
+                !term ||
+                c.displayName.toLowerCase().includes(term) ||
+                c.phone.includes(term)
+              );
+            })
+            .map((customer) => (
+              <label key={customer.phone} style={customerRowStyle}>
+                <input
+                  type="checkbox"
+                  checked={selectedPhones.has(customer.phone)}
+                  onChange={() => togglePhone(customer.phone)}
+                />
+                <span>{customer.displayName}</span>
+                <span style={{ color: '#999', fontSize: 12 }}>{customer.phone}</span>
+                <span style={{ marginLeft: 'auto', color: '#999', fontSize: 12 }}>
+                  {customer.totalOrders} orders · {customer.eventsAttended} events attended
+                </span>
+              </label>
+            ))}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16 }}>
+          <button
+            type="button"
+            onClick={handleInvite}
+            disabled={isInviting || selectedPhones.size === 0}
+            style={submitBtnStyle}
+          >
+            {isInviting ? 'Sending...' : `Send Invites (${selectedPhones.size})`}
+          </button>
+          {inviteMessage && <span style={{ fontSize: 13, color: '#666' }}>{inviteMessage}</span>}
+        </div>
       </div>
     </div>
   );
@@ -437,6 +566,27 @@ const submitBtnStyle: React.CSSProperties = {
   color: '#fff',
   border: 'none',
   borderRadius: 8,
+  cursor: 'pointer',
+};
+
+const secondaryBtnStyle: React.CSSProperties = {
+  padding: '8px 16px',
+  fontSize: 13,
+  fontWeight: 600,
+  background: '#fff',
+  color: '#1A1A1A',
+  border: '1px solid #d1d5db',
+  borderRadius: 8,
+  cursor: 'pointer',
+};
+
+const customerRowStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  padding: '10px 14px',
+  borderBottom: '1px solid #f1f5f9',
+  fontSize: 13,
   cursor: 'pointer',
 };
 
