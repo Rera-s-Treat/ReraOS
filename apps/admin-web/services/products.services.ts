@@ -26,10 +26,18 @@ export const createProduct = async (
   formData.append('name', payload.name);
   if (payload.sku) formData.append('sku', payload.sku);
   if (payload.description) formData.append('description', payload.description);
+  if (payload.servings) formData.append('servings', payload.servings);
+  (payload.contents ?? []).forEach((item) => formData.append('contents', item));
   formData.append('price', String(payload.price));
   if (payload.status) formData.append('status', payload.status);
   if (payload.isAvailable !== undefined) {
     formData.append('isAvailable', String(payload.isAvailable));
+  }
+  if (payload.featured !== undefined) {
+    formData.append('featured', String(payload.featured));
+  }
+  if (payload.sortOrder !== undefined) {
+    formData.append('sortOrder', String(payload.sortOrder));
   }
   if (payload.categoryId) formData.append('categoryId', payload.categoryId);
 

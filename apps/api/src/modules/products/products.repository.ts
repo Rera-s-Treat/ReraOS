@@ -4,6 +4,9 @@ import { ProductStatus } from '@prisma/client';
 import { PrismaService } from '../../common/prisma.service';
 
 const productInclude = { category: true } as const;
+function productOrderBy() {
+  return [{ sortOrder: 'asc' as const }, { name: 'asc' as const }];
+}
 
 @Injectable()
 export class ProductsRepository {
@@ -12,7 +15,7 @@ export class ProductsRepository {
   async findAll() {
     return this.prisma.product.findMany({
       include: productInclude,
-      orderBy: { name: 'asc' },
+      orderBy: productOrderBy(),
     });
   }
 
@@ -43,7 +46,7 @@ export class ProductsRepository {
         ...(categoryId ? { categoryId } : {}),
       },
       include: productInclude,
-      orderBy: { name: 'asc' },
+      orderBy: productOrderBy(),
     });
   }
 
@@ -51,9 +54,13 @@ export class ProductsRepository {
     name: string;
     sku?: string;
     description?: string;
+    servings?: string;
+    contents?: string[];
     price: number;
     status?: ProductStatus;
     isAvailable?: boolean;
+    featured?: boolean;
+    sortOrder?: number;
     categoryId?: string;
     images?: string[];
   }) {
@@ -69,9 +76,13 @@ export class ProductsRepository {
       name?: string;
       sku?: string;
       description?: string;
+      servings?: string;
+      contents?: string[];
       price?: number;
       status?: ProductStatus;
       isAvailable?: boolean;
+      featured?: boolean;
+      sortOrder?: number;
       categoryId?: string;
     },
   ) {
@@ -83,11 +94,15 @@ export class ProductsRepository {
         ...(data.description !== undefined
           ? { description: data.description }
           : {}),
+        ...(data.servings !== undefined ? { servings: data.servings } : {}),
+        ...(data.contents !== undefined ? { contents: data.contents } : {}),
         ...(data.price !== undefined ? { price: data.price } : {}),
         ...(data.status !== undefined ? { status: data.status } : {}),
         ...(data.isAvailable !== undefined
           ? { isAvailable: data.isAvailable }
           : {}),
+        ...(data.featured !== undefined ? { featured: data.featured } : {}),
+        ...(data.sortOrder !== undefined ? { sortOrder: data.sortOrder } : {}),
         ...(data.categoryId !== undefined ? { categoryId: data.categoryId } : {}),
       },
       include: productInclude,

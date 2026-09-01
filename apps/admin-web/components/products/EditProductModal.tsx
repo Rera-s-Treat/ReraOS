@@ -16,20 +16,28 @@ interface FormState {
   name: string;
   sku: string;
   description: string;
+  servings: string;
+  contents: string;
   price: string;
   categoryId: string;
   status: string;
   isAvailable: boolean;
+  featured: boolean;
+  sortOrder: string;
 }
 
 const emptyForm: FormState = {
   name: '',
   sku: '',
   description: '',
+  servings: '',
+  contents: '',
   price: '',
   categoryId: '',
   status: 'ACTIVE',
   isAvailable: true,
+  featured: false,
+  sortOrder: '0',
 };
 
 const statusOptions = ['ACTIVE', 'INACTIVE'];
@@ -52,10 +60,14 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
       name: product.name,
       sku: product.sku ?? '',
       description: product.description ?? '',
+      servings: product.servings ?? '',
+      contents: (product.contents ?? []).join('\n'),
       price: product.price,
       categoryId: product.categoryId ?? '',
       status: product.status,
       isAvailable: product.isAvailable,
+      featured: product.featured ?? false,
+      sortOrder: String(product.sortOrder ?? 0),
     });
   }, [isOpen, product]);
 
@@ -104,10 +116,17 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
         name: form.name.trim(),
         sku: form.sku.trim() || undefined,
         description: form.description.trim() || undefined,
+        servings: form.servings.trim() || undefined,
+        contents: form.contents
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean),
         price: Number(form.price),
         categoryId: form.categoryId || undefined,
         status: form.status,
         isAvailable: form.isAvailable,
+        featured: form.featured,
+        sortOrder: form.sortOrder.trim() ? Number(form.sortOrder) : undefined,
       });
 
       onClose();
@@ -188,6 +207,43 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
             </div>
           </div>
 
+          <div style={rowStyle}>
+            <div style={fieldStyle}>
+              <label>Servings</label>
+              <input
+                name="servings"
+                value={form.servings}
+                onChange={handleChange}
+                placeholder="e.g. Serves 1-2"
+                style={inputStyle}
+              />
+            </div>
+
+            <div style={fieldStyle}>
+              <label>Sort Order</label>
+              <input
+                name="sortOrder"
+                type="number"
+                step="1"
+                value={form.sortOrder}
+                onChange={handleChange}
+                placeholder="0"
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          <div style={fieldStyle}>
+            <label>What's included (one per line)</label>
+            <textarea
+              name="contents"
+              value={form.contents}
+              onChange={handleChange}
+              placeholder={'2pcs chicken\nColeslaw\nFries'}
+              style={{ ...inputStyle, minHeight: 72, resize: 'vertical' }}
+            />
+          </div>
+
           <div style={fieldStyle}>
             <label>Status</label>
             <select
@@ -212,6 +268,16 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
               onChange={handleChange}
             />
             Available on menu
+          </label>
+
+          <label style={checkboxRowStyle}>
+            <input
+              type="checkbox"
+              name="featured"
+              checked={form.featured}
+              onChange={handleChange}
+            />
+            Featured (highlight on menu/homepage)
           </label>
 
           {error && <p style={{ color: 'red', marginBottom: 12 }}>{error}</p>}

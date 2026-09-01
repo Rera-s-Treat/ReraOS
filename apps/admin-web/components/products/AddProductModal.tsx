@@ -14,18 +14,26 @@ interface FormState {
   name: string;
   sku: string;
   description: string;
+  servings: string;
+  contents: string;
   price: string;
   categoryId: string;
   isAvailable: boolean;
+  featured: boolean;
+  sortOrder: string;
 }
 
 const initialForm: FormState = {
   name: '',
   sku: '',
   description: '',
+  servings: '',
+  contents: '',
   price: '',
   categoryId: '',
   isAvailable: true,
+  featured: false,
+  sortOrder: '0',
 };
 
 const MAX_IMAGES = 3;
@@ -109,9 +117,16 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
         name: form.name.trim(),
         sku: form.sku.trim() || undefined,
         description: form.description.trim() || undefined,
+        servings: form.servings.trim() || undefined,
+        contents: form.contents
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean),
         price: Number(form.price),
         categoryId: form.categoryId || undefined,
         isAvailable: form.isAvailable,
+        featured: form.featured,
+        sortOrder: form.sortOrder.trim() ? Number(form.sortOrder) : undefined,
         images,
       });
 
@@ -195,6 +210,43 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
             </div>
           </div>
 
+          <div style={rowStyle}>
+            <div style={fieldStyle}>
+              <label>Servings</label>
+              <input
+                name="servings"
+                value={form.servings}
+                onChange={handleChange}
+                placeholder="e.g. Serves 1-2"
+                style={inputStyle}
+              />
+            </div>
+
+            <div style={fieldStyle}>
+              <label>Sort Order</label>
+              <input
+                name="sortOrder"
+                type="number"
+                step="1"
+                value={form.sortOrder}
+                onChange={handleChange}
+                placeholder="0"
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          <div style={fieldStyle}>
+            <label>What's included (one per line)</label>
+            <textarea
+              name="contents"
+              value={form.contents}
+              onChange={handleChange}
+              placeholder={'2pcs chicken\nColeslaw\nFries'}
+              style={{ ...inputStyle, minHeight: 72, resize: 'vertical' }}
+            />
+          </div>
+
           <div style={{ marginBottom: 16 }}>
             <label style={{ display: 'block', marginBottom: 8 }}>
               Images (up to {MAX_IMAGES})
@@ -237,6 +289,16 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
               onChange={handleChange}
             />
             Available on menu
+          </label>
+
+          <label style={checkboxRowStyle}>
+            <input
+              type="checkbox"
+              name="featured"
+              checked={form.featured}
+              onChange={handleChange}
+            />
+            Featured (highlight on menu/homepage)
           </label>
 
           {error && <p style={{ color: 'red', marginBottom: 12 }}>{error}</p>}

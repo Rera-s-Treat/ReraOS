@@ -55,9 +55,13 @@ export class ProductsService {
       name: createProductDto.name,
       sku: createProductDto.sku,
       description: createProductDto.description,
+      servings: createProductDto.servings,
+      contents: createProductDto.contents,
       price: createProductDto.price,
       status: createProductDto.status,
       isAvailable: createProductDto.isAvailable,
+      featured: createProductDto.featured,
+      sortOrder: createProductDto.sortOrder,
       categoryId: createProductDto.categoryId,
       images,
     });
@@ -93,9 +97,13 @@ export class ProductsService {
       name: updateProductDto.name,
       sku: updateProductDto.sku,
       description: updateProductDto.description,
+      servings: updateProductDto.servings,
+      contents: updateProductDto.contents,
       price: updateProductDto.price,
       status: updateProductDto.status,
       isAvailable: updateProductDto.isAvailable,
+      featured: updateProductDto.featured,
+      sortOrder: updateProductDto.sortOrder,
       categoryId: updateProductDto.categoryId,
     });
   }
