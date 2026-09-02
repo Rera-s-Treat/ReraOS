@@ -528,6 +528,7 @@ model Event {
   rsvpOpen        Boolean     @default(true)
   status          EventStatus @default(DRAFT)
   interestOptions String[]    @default([])
+  dismissCount    Int         @default(0)
 
   rsvps           EventRsvp[]
 

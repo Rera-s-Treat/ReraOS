@@ -239,6 +239,7 @@ export default function EventsPage() {
                 <th style={thStyle}>Status</th>
                 <th style={thStyle}>Date</th>
                 <th style={thStyle}>RSVPs</th>
+                <th style={thStyle}>Maybe Later</th>
                 <th style={thStyle}>Public link</th>
               </tr>
             </thead>
@@ -262,6 +263,7 @@ export default function EventsPage() {
                     {event._count?.rsvps ?? 0}
                     {event.capacity ? ` / ${event.capacity}` : ''}
                   </td>
+                  <td style={tdStyle}>{event.dismissCount}</td>
                   <td style={tdStyle}>
                     <a
                       href={`${PUBLIC_SITE_ORIGIN}/events/${event.slug}`}

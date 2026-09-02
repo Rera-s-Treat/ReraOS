@@ -164,6 +164,21 @@ export class EventsService {
     };
   }
 
+  /** Called when a website visitor dismisses the homepage promo popup for this event ("Maybe later"). */
+  async recordDismissal(slug: string) {
+    const event = await this.prisma.event.findUnique({ where: { slug } });
+    if (!event) {
+      throw new NotFoundException('Event not found');
+    }
+
+    await this.prisma.event.update({
+      where: { slug },
+      data: { dismissCount: { increment: 1 } },
+    });
+
+    return { success: true };
+  }
+
   async getPublicEvent(slug: string) {
     const event = await this.prisma.event.findUnique({
       where: { slug },

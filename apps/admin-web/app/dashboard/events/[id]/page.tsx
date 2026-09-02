@@ -221,6 +221,9 @@ export default function EventDetailPage() {
             <strong>{totalAttending}</strong> attending
             {event.capacity ? ` / ${event.capacity} capacity` : ''}
           </div>
+          <div>
+            <strong>{event.dismissCount}</strong> clicked &quot;Maybe later&quot;
+          </div>
         </div>
       </div>
 

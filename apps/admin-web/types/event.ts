@@ -31,6 +31,7 @@ export interface RerraEvent {
   rsvpOpen: boolean;
   status: EventStatus;
   interestOptions: string[];
+  dismissCount: number;
   createdAt: string;
   updatedAt: string;
   _count?: { rsvps: number };

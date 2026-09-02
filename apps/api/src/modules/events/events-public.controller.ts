@@ -30,6 +30,12 @@ export class EventsPublicController {
     return this.eventsService.createPublicRsvp(slug, body);
   }
 
+  @Post(':slug/dismiss')
+  @ApiOperation({ summary: 'Record that a visitor dismissed the homepage promo popup for this event' })
+  async recordDismissal(@Param('slug') slug: string) {
+    return this.eventsService.recordDismissal(slug);
+  }
+
   @Get('rsvp/:rsvpId')
   @ApiOperation({ summary: 'Get minimal RSVP + event info for the public feedback page' })
   async getRsvpForFeedback(@Param('rsvpId') rsvpId: string) {
