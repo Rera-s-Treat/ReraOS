@@ -42,7 +42,10 @@ export class CreateProductDto {
     description: 'What comes with this item, shown as a bullet list',
   })
   @IsOptional()
-  @IsArray()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? [value] : value,
+  )
+  @IsArray({ message: 'Content must be a list of items, one per line' })
   @IsString({ each: true })
   contents?: string[];
 

@@ -2,23 +2,23 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #1a1a1a;
+  --foreground: #2b2620;
 
-  --color-treat-orange: #e8621a;
-  --color-garden-green: #1c4a1c;
-  --color-warm-peach: #f5a07a;
-  --color-leaf-green: #7ec87e;
-  --color-cream: #fdf8f2;
-  --color-rich-black: #1a1a1a;
-  --color-pale-orange: #f9ede3;
-  --color-pale-green: #e8f0e8;
+  --color-treat-orange: #d94a32;
+  --color-garden-green: #3b2118;
+  --color-warm-peach: #efa98f;
+  --color-leaf-green: #e9a83b;
+  --color-cream: #fff4e3;
+  --color-rich-black: #2b2620;
+  --color-pale-orange: #fbeae5;
+  --color-pale-green: #f5eacd;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-jost);
-  --font-serif: var(--font-cormorant);
+  --font-serif: var(--font-fraunces);
 
   --color-brand-orange: var(--color-treat-orange);
   --color-brand-green: var(--color-garden-green);

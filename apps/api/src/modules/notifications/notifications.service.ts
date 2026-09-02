@@ -7,6 +7,7 @@ import {
   NotificationType,
 } from '@prisma/client';
 
+import { buildBrandedEmailHtml } from '../../common/email-template';
 import { normalizeNigerianPhoneNumber } from '../../common/phone';
 import { PAYMENT_ACCOUNT } from '../../common/payment-account';
 import { PrismaService } from '../../common/prisma.service';
@@ -117,6 +118,7 @@ export class NotificationsService {
           cc: cc ? [cc] : undefined,
           subject,
           text,
+          html: buildBrandedEmailHtml(text),
         }),
       });
 
