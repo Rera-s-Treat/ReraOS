@@ -13,14 +13,22 @@ function escapeHtml(value: string): string {
     .replace(/>/g, '&gt;');
 }
 
+/** Supports simple **bold** markdown in plain-text bodies, applied after escaping so it's safe. */
+function applyInlineMarkdown(escaped: string): string {
+  return escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+}
+
 function bodyTextToHtml(text: string): string {
   return text
     .trim()
     .split(/\n\n+/)
-    .map(
-      (paragraph) =>
-        `<p style="margin:0 0 16px;">${escapeHtml(paragraph).replace(/\n/g, '<br>')}</p>`,
-    )
+    .map((paragraph) => {
+      const html = applyInlineMarkdown(escapeHtml(paragraph)).replace(
+        /\n/g,
+        '<br>',
+      );
+      return `<p style="margin:0 0 16px;">${html}</p>`;
+    })
     .join('');
 }
 

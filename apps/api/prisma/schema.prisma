@@ -557,6 +557,10 @@ model EventRsvp {
   feedback         String?
   feedbackRating   Int?
 
+  confirmationSentAt DateTime?
+  reminder3dSentAt   DateTime?
+  reminderDaySentAt  DateTime?
+
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
 

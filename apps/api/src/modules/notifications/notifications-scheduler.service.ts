@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import {
+  EventStatus,
   KitchenStatus,
   NotificationCategory,
   NotificationType,
@@ -11,7 +12,9 @@ import { PrismaService } from '../../common/prisma.service';
 import { NotificationsService } from './notifications.service';
 
 const STUCK_PENDING_HOURS = Number(process.env.STUCK_PENDING_HOURS ?? 2);
-const READY_NOT_PICKED_UP_HOURS = Number(process.env.READY_NOT_PICKED_UP_HOURS ?? 1);
+const READY_NOT_PICKED_UP_HOURS = Number(
+  process.env.READY_NOT_PICKED_UP_HOURS ?? 1,
+);
 
 function formatNaira(amount: unknown): string {
   return `₦${Number(amount).toLocaleString()}`;
@@ -19,6 +22,36 @@ function formatNaira(amount: unknown): string {
 
 function hoursAgo(hours: number): Date {
   return new Date(Date.now() - hours * 60 * 60 * 1000);
+}
+
+function dayRange(daysFromNow: number): { start: Date; end: Date } {
+  const start = new Date();
+  start.setDate(start.getDate() + daysFromNow);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
+function formatEventDate(eventDate: Date | null): string {
+  if (!eventDate) return 'TBD';
+  return eventDate.toLocaleDateString('en-NG', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+}
+
+function formatEventTime(eventDate: Date | null): string {
+  if (!eventDate) return 'TBD';
+  return eventDate.toLocaleTimeString('en-NG', {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function firstName(fullName: string): string {
+  return fullName.trim().split(/\s+/)[0] || fullName;
 }
 
 @Injectable()
@@ -140,7 +173,10 @@ export class NotificationsSchedulerService {
 
     for (const order of stuckOrders) {
       const alreadyFlagged = await this.prisma.notification.findFirst({
-        where: { orderId: order.id, type: NotificationType.ORDER_STUCK_PENDING },
+        where: {
+          orderId: order.id,
+          type: NotificationType.ORDER_STUCK_PENDING,
+        },
       });
       if (alreadyFlagged) continue;
 
@@ -154,7 +190,9 @@ export class NotificationsSchedulerService {
     }
 
     if (stuckOrders.length > 0) {
-      this.logger.log(`Checked stuck-pending orders, flagged up to ${stuckOrders.length}.`);
+      this.logger.log(
+        `Checked stuck-pending orders, flagged up to ${stuckOrders.length}.`,
+      );
     }
   }
 
@@ -181,7 +219,10 @@ export class NotificationsSchedulerService {
 
     for (const order of readyOrders) {
       const alreadyFlagged = await this.prisma.notification.findFirst({
-        where: { orderId: order.id, type: NotificationType.ORDER_READY_NOT_PICKED_UP },
+        where: {
+          orderId: order.id,
+          type: NotificationType.ORDER_READY_NOT_PICKED_UP,
+        },
       });
       if (alreadyFlagged) continue;
 
@@ -192,6 +233,93 @@ export class NotificationsSchedulerService {
         message: `Order ${order.orderNumber} (${order.customerName}, ${order.customerPhone}) has been ready for pickup since ${order.updatedAt.toLocaleString()} — over ${READY_NOT_PICKED_UP_HOURS}h ago.`,
         orderId: order.id,
       });
+    }
+  }
+
+  /** Every day at 09:00 server time: remind guests 3 days ahead of an event they RSVP'd to. */
+  @Cron('0 9 * * *')
+  async sendEventReminders3Days(): Promise<void> {
+    const { start, end } = dayRange(3);
+
+    const events = await this.prisma.event.findMany({
+      where: {
+        status: EventStatus.PUBLISHED,
+        eventDate: { gte: start, lte: end },
+      },
+      include: {
+        rsvps: { where: { email: { not: null }, reminder3dSentAt: null } },
+      },
+    });
+
+    for (const event of events) {
+      for (const rsvp of event.rsvps) {
+        const body = `Hi ${firstName(rsvp.name)},
+
+Just a little heads-up: **${event.title} is in 3 days.**
+
+**${formatEventDate(event.eventDate)} · ${formatEventTime(event.eventDate)}**
+
+We've got the food, the treats and the good company waiting.
+
+You just need to show up. 😉
+
+See you soon,
+
+**Rera's Treat**`;
+
+        await this.notificationsService.sendEmail(
+          rsvp.email!,
+          `${event.title} is in 3 days!`,
+          body,
+        );
+        await this.prisma.eventRsvp.update({
+          where: { id: rsvp.id },
+          data: { reminder3dSentAt: new Date() },
+        });
+      }
+    }
+  }
+
+  /** Every day at 08:00 server time: remind guests the event they RSVP'd to is happening today. */
+  @Cron('0 8 * * *')
+  async sendEventRemindersToday(): Promise<void> {
+    const { start, end } = dayRange(0);
+
+    const events = await this.prisma.event.findMany({
+      where: {
+        status: EventStatus.PUBLISHED,
+        eventDate: { gte: start, lte: end },
+      },
+      include: {
+        rsvps: { where: { email: { not: null }, reminderDaySentAt: null } },
+      },
+    });
+
+    for (const event of events) {
+      for (const rsvp of event.rsvps) {
+        const body = `Hi ${firstName(rsvp.name)},
+
+Today's the day. ✨
+
+**${event.title}** is happening today at **${formatEventTime(event.eventDate)}**.
+
+Your RSVP is confirmed, so all that's left is to come as you are and enjoy yourself.
+
+We'll have the treats ready.
+
+**See you soon,**
+Rera's Treat`;
+
+        await this.notificationsService.sendEmail(
+          rsvp.email!,
+          `Today's the day — ${event.title}`,
+          body,
+        );
+        await this.prisma.eventRsvp.update({
+          where: { id: rsvp.id },
+          data: { reminderDaySentAt: new Date() },
+        });
+      }
     }
   }
 }

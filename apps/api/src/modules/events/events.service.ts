@@ -28,6 +28,27 @@ function interestTag(interest: string): string {
   return `INTEREST_${interest.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`;
 }
 
+function formatEventDate(eventDate: Date | null): string {
+  if (!eventDate) return 'TBD';
+  return eventDate.toLocaleDateString('en-NG', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+}
+
+function formatEventTime(eventDate: Date | null): string {
+  if (!eventDate) return 'TBD';
+  return eventDate.toLocaleTimeString('en-NG', {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function firstName(fullName: string): string {
+  return fullName.trim().split(/\s+/)[0] || fullName;
+}
+
 @Injectable()
 export class EventsService {
   private readonly logger = new Logger(EventsService.name);
@@ -59,7 +80,9 @@ export class EventsService {
   }
 
   async createEvent(dto: CreateEventDto) {
-    const existing = await this.prisma.event.findUnique({ where: { slug: dto.slug } });
+    const existing = await this.prisma.event.findUnique({
+      where: { slug: dto.slug },
+    });
     if (existing) {
       throw new ConflictException('An event with this slug already exists');
     }
@@ -87,7 +110,9 @@ export class EventsService {
     }
 
     if (dto.slug && dto.slug !== event.slug) {
-      const slugOwner = await this.prisma.event.findUnique({ where: { slug: dto.slug } });
+      const slugOwner = await this.prisma.event.findUnique({
+        where: { slug: dto.slug },
+      });
       if (slugOwner) {
         throw new ConflictException('An event with this slug already exists');
       }
@@ -117,8 +142,10 @@ export class EventsService {
     });
 
     if (dto.attendanceStatus === RsvpAttendanceStatus.ATTENDED && rsvp.email) {
-      void this.syncBrevoTags(rsvp.email, rsvp.name, [slugTag(`ATTENDED_${rsvp.event.slug}`)]).catch(
-        (error) => this.logger.error('Brevo attended-tag sync failed', error as Error),
+      void this.syncBrevoTags(rsvp.email, rsvp.name, [
+        slugTag(`ATTENDED_${rsvp.event.slug}`),
+      ]).catch((error) =>
+        this.logger.error('Brevo attended-tag sync failed', error as Error),
       );
     }
 
@@ -248,7 +275,48 @@ export class EventsService {
       );
     }
 
+    void this.sendRsvpConfirmation(rsvp.id, event, dto.name, dto.email).catch(
+      (error) =>
+        this.logger.error('RSVP confirmation email failed', error as Error),
+    );
+
     return rsvp;
+  }
+
+  private async sendRsvpConfirmation(
+    rsvpId: string,
+    event: { title: string; eventDate: Date | null },
+    name: string,
+    email?: string | null,
+  ): Promise<void> {
+    if (!email) return;
+
+    const body = `Hi ${firstName(name)},
+
+You're on the list. ✨
+
+We're looking forward to having you at **${event.title}**.
+
+**Here are the details:**
+
+**Date:** ${formatEventDate(event.eventDate)}
+**Time:** ${formatEventTime(event.eventDate)}
+
+Consider this your little reminder to leave some room for good food, good conversation and, of course, a little Rera shopping.
+
+We'll see you there.
+
+**Rera's Treat**`;
+
+    await this.notificationsService.sendEmail(
+      email,
+      `You're on the list — ${event.title}`,
+      body,
+    );
+    await this.prisma.eventRsvp.update({
+      where: { id: rsvpId },
+      data: { confirmationSentAt: new Date() },
+    });
   }
 
   /**
@@ -257,7 +325,11 @@ export class EventsService {
    * attribute named TAGS to already exist on the Brevo account (Contacts ->
    * Settings -> Contact Attributes); silently no-ops otherwise.
    */
-  private async syncBrevoTags(email: string, name: string, newTags: string[]): Promise<void> {
+  private async syncBrevoTags(
+    email: string,
+    name: string,
+    newTags: string[],
+  ): Promise<void> {
     if (!process.env.BREVO_API_KEY) return;
 
     const headers = {
@@ -267,9 +339,12 @@ export class EventsService {
 
     let existingTags: string[] = [];
     try {
-      const existingRes = await fetch(`${BREVO_CONTACTS_URL}/${encodeURIComponent(email)}`, {
-        headers,
-      });
+      const existingRes = await fetch(
+        `${BREVO_CONTACTS_URL}/${encodeURIComponent(email)}`,
+        {
+          headers,
+        },
+      );
       if (existingRes.ok) {
         const existing = await existingRes.json();
         const raw = existing?.attributes?.TAGS;
@@ -278,7 +353,9 @@ export class EventsService {
         }
       }
     } catch (error) {
-      this.logger.warn(`Could not read existing Brevo contact for ${email}: ${error}`);
+      this.logger.warn(
+        `Could not read existing Brevo contact for ${email}: ${error}`,
+      );
     }
 
     const mergedTags = Array.from(new Set([...existingTags, ...newTags]));
@@ -309,14 +386,18 @@ export class EventsService {
   // ---------------------------------------------------------------------
 
   async inviteCustomers(eventId: string, phones: string[]) {
-    const event = await this.prisma.event.findUnique({ where: { id: eventId } });
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+    });
     if (!event) {
       throw new NotFoundException('Event not found');
     }
 
     const eventUrl = `${PUBLIC_SITE_ORIGIN}/events/${event.slug}`;
     const allCustomers = await this.customersService.getCustomers();
-    const targets = allCustomers.filter((customer) => phones.includes(customer.phone));
+    const targets = allCustomers.filter((customer) =>
+      phones.includes(customer.phone),
+    );
 
     const results = await Promise.all(
       targets.map(async (customer) => {
@@ -327,18 +408,29 @@ export class EventsService {
 
         try {
           if (customer.email) {
-            await this.notificationsService.sendEmail(customer.email, subject, body);
+            await this.notificationsService.sendEmail(
+              customer.email,
+              subject,
+              body,
+            );
           }
           await this.notificationsService.sendSms(customer.phone, body);
           return { phone: customer.phone, success: true };
         } catch (error) {
-          this.logger.error(`Failed to invite ${customer.phone}`, error as Error);
+          this.logger.error(
+            `Failed to invite ${customer.phone}`,
+            error as Error,
+          );
           return { phone: customer.phone, success: false };
         }
       }),
     );
 
-    return { invited: results.filter((r) => r.success).length, total: results.length, results };
+    return {
+      invited: results.filter((r) => r.success).length,
+      total: results.length,
+      results,
+    };
   }
 
   // ---------------------------------------------------------------------
@@ -363,8 +455,14 @@ export class EventsService {
     };
   }
 
-  async submitPublicFeedback(rsvpId: string, feedback?: string, feedbackRating?: number) {
-    const rsvp = await this.prisma.eventRsvp.findUnique({ where: { id: rsvpId } });
+  async submitPublicFeedback(
+    rsvpId: string,
+    feedback?: string,
+    feedbackRating?: number,
+  ) {
+    const rsvp = await this.prisma.eventRsvp.findUnique({
+      where: { id: rsvpId },
+    });
     if (!rsvp) {
       throw new NotFoundException('RSVP not found');
     }
@@ -376,13 +474,19 @@ export class EventsService {
   }
 
   async sendFeedbackRequests(eventId: string) {
-    const event = await this.prisma.event.findUnique({ where: { id: eventId } });
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+    });
     if (!event) {
       throw new NotFoundException('Event not found');
     }
 
     const attendedRsvps = await this.prisma.eventRsvp.findMany({
-      where: { eventId, attendanceStatus: RsvpAttendanceStatus.ATTENDED, feedback: null },
+      where: {
+        eventId,
+        attendanceStatus: RsvpAttendanceStatus.ATTENDED,
+        feedback: null,
+      },
     });
 
     const results = await Promise.all(
@@ -393,18 +497,28 @@ export class EventsService {
 
         try {
           if (rsvp.email) {
-            await this.notificationsService.sendEmail(rsvp.email, subject, body);
+            await this.notificationsService.sendEmail(
+              rsvp.email,
+              subject,
+              body,
+            );
           } else if (rsvp.phone) {
             await this.notificationsService.sendSms(rsvp.phone, body);
           }
           return { rsvpId: rsvp.id, success: true };
         } catch (error) {
-          this.logger.error(`Failed to send feedback request for ${rsvp.id}`, error as Error);
+          this.logger.error(
+            `Failed to send feedback request for ${rsvp.id}`,
+            error as Error,
+          );
           return { rsvpId: rsvp.id, success: false };
         }
       }),
     );
 
-    return { sent: results.filter((r) => r.success).length, total: results.length };
+    return {
+      sent: results.filter((r) => r.success).length,
+      total: results.length,
+    };
   }
 }
