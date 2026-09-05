@@ -179,12 +179,18 @@ export class EventsService {
   async getFeaturedEvent() {
     const candidates = await this.prisma.event.findMany({
       where: { status: EventStatus.PUBLISHED, rsvpOpen: true },
-      include: { _count: { select: { rsvps: true } } },
     });
 
-    const open = candidates.filter(
-      (event) => !event.capacity || event._count.rsvps < event.capacity,
+    const withAttendance = await Promise.all(
+      candidates.map(async (event) => ({
+        event,
+        totalAttending: event.capacity ? await this.getTotalAttending(event.id) : 0,
+      })),
     );
+
+    const open = withAttendance
+      .filter(({ event, totalAttending }) => !event.capacity || totalAttending < event.capacity)
+      .map(({ event }) => event);
 
     if (open.length === 0) {
       return null;
@@ -225,15 +231,23 @@ export class EventsService {
     return { success: true };
   }
 
-  async getPublicEvent(slug: string) {
-    const event = await this.prisma.event.findUnique({
-      where: { slug },
-      include: { _count: { select: { rsvps: true } } },
+  /** Sum of numberAttending across all RSVPs for an event - the real headcount against capacity. */
+  private async getTotalAttending(eventId: string): Promise<number> {
+    const result = await this.prisma.eventRsvp.aggregate({
+      where: { eventId },
+      _sum: { numberAttending: true },
     });
+    return result._sum.numberAttending ?? 0;
+  }
+
+  async getPublicEvent(slug: string) {
+    const event = await this.prisma.event.findUnique({ where: { slug } });
 
     if (!event || event.status !== EventStatus.PUBLISHED) {
       throw new NotFoundException('Event not found');
     }
+
+    const spotsTaken = await this.getTotalAttending(event.id);
 
     return {
       title: event.title,
@@ -245,15 +259,12 @@ export class EventsService {
       rsvpOpen: event.rsvpOpen,
       interestOptions: event.interestOptions,
       capacity: event.capacity,
-      spotsTaken: event._count.rsvps,
+      spotsTaken,
     };
   }
 
   async createPublicRsvp(slug: string, dto: CreateRsvpDto) {
-    const event = await this.prisma.event.findUnique({
-      where: { slug },
-      include: { _count: { select: { rsvps: true } } },
-    });
+    const event = await this.prisma.event.findUnique({ where: { slug } });
 
     if (!event || event.status !== EventStatus.PUBLISHED) {
       throw new NotFoundException('Event not found');
@@ -263,8 +274,21 @@ export class EventsService {
       throw new ForbiddenException('RSVPs are closed for this event');
     }
 
-    if (event.capacity && event._count.rsvps >= event.capacity) {
-      throw new ForbiddenException('This event is fully booked');
+    const requestedAttending = dto.numberAttending ?? 1;
+    const totalAttending = await this.getTotalAttending(event.id);
+
+    if (event.capacity) {
+      const spotsLeft = event.capacity - totalAttending;
+      if (spotsLeft <= 0) {
+        throw new ForbiddenException('This event is fully booked');
+      }
+      if (requestedAttending > spotsLeft) {
+        throw new ForbiddenException(
+          spotsLeft === 1
+            ? 'Only 1 spot left for this event'
+            : `Only ${spotsLeft} spots left for this event`,
+        );
+      }
     }
 
     if (!dto.email && !dto.phone) {
@@ -277,7 +301,7 @@ export class EventsService {
         name: dto.name,
         email: dto.email,
         phone: dto.phone,
-        numberAttending: dto.numberAttending ?? 1,
+        numberAttending: requestedAttending,
         dietaryNote: dto.dietaryNote,
         hearAboutUs: dto.hearAboutUs,
         interests: dto.interests ?? [],
@@ -292,6 +316,19 @@ export class EventsService {
       void this.syncBrevoTags(dto.email, dto.name, tags).catch((error) =>
         this.logger.error('Brevo RSVP-tag sync failed', error as Error),
       );
+    }
+
+    if (event.capacity) {
+      const preRemaining = event.capacity - totalAttending;
+      const postRemaining = event.capacity - (totalAttending + requestedAttending);
+      if (preRemaining > 5 && postRemaining <= 5) {
+        await this.notificationsService.notifyAdmin({
+          type: NotificationType.EVENT_CAPACITY_WARNING,
+          category: NotificationCategory.SYSTEM,
+          title: `Capacity warning — ${event.title}`,
+          message: `${event.title} is nearly full: ${totalAttending + requestedAttending}/${event.capacity} spots taken (${Math.max(postRemaining, 0)} remaining). Increase the capacity if you'd like to accept more RSVPs, or leave it as is to let it fill up.`,
+        });
+      }
     }
 
     await this.notificationsService.notifyAdmin({
