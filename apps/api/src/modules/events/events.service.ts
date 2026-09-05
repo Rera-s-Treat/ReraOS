@@ -6,7 +6,12 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { EventStatus, RsvpAttendanceStatus } from '@prisma/client';
+import {
+  EventStatus,
+  NotificationCategory,
+  NotificationType,
+  RsvpAttendanceStatus,
+} from '@prisma/client';
 
 import { PrismaService } from '../../common/prisma.service';
 import { CustomersService } from '../customers/customers.service';
@@ -274,6 +279,24 @@ export class EventsService {
         this.logger.error('Brevo RSVP-tag sync failed', error as Error),
       );
     }
+
+    await this.notificationsService.notifyAdmin({
+      type: NotificationType.NEW_EVENT_RSVP,
+      category: NotificationCategory.SYSTEM,
+      title: `New RSVP — ${event.title}`,
+      message: [
+        `${dto.name} just RSVP'd to ${event.title}.`,
+        `Attending: ${dto.numberAttending ?? 1}`,
+        dto.email ? `Email: ${dto.email}` : null,
+        dto.phone ? `Phone: ${dto.phone}` : null,
+        dto.dietaryNote ? `Dietary note: ${dto.dietaryNote}` : null,
+        dto.interests?.length
+          ? `Excited to try: ${dto.interests.join(', ')}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    });
 
     void this.sendRsvpConfirmation(rsvp.id, event, dto.name, dto.email).catch(
       (error) =>

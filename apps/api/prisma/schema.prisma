@@ -360,6 +360,7 @@ enum NotificationType {
   WEEKLY_PERFORMANCE_SUMMARY
   NEW_CUSTOMER_MILESTONE
   NOTIFICATION_DELIVERY_FAILURE
+  NEW_EVENT_RSVP
 }
 
 enum NotificationCategory {
@@ -566,4 +567,27 @@ model EventRsvp {
 
   @@index([eventId])
   @@index([attendanceStatus])
+}
+
+enum JournalStatus {
+  DRAFT
+  PUBLISHED
+  UNPUBLISHED
+}
+
+model JournalPost {
+  id          String        @id @default(uuid())
+  title       String
+  slug        String        @unique
+  excerpt     String?
+  body        String
+  coverImage  String?
+  status      JournalStatus @default(DRAFT)
+  publishedAt DateTime?
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([slug])
+  @@index([status])
 }

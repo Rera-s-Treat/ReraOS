@@ -21,6 +21,7 @@ const navItems = [
   { label: 'Customers', href: '/dashboard/customers' },
   { label: 'Community', href: '/dashboard/community' },
   { label: 'Rera Events', href: '/dashboard/events' },
+  { label: 'Journal', href: '/dashboard/journal' },
   { label: 'Inventory', href: '/dashboard/inventory' },
   { label: 'Settings', href: '/dashboard/settings' },
 ];
@@ -53,6 +54,10 @@ const pageMeta: Record<string, { title: string; subtitle: string }> = {
   '/dashboard/events': {
     title: 'Rera Events',
     subtitle: 'Tastings, previews and customer events — RSVPs, attendance and feedback.',
+  },
+  '/dashboard/journal': {
+    title: 'Journal',
+    subtitle: 'Write and publish posts for the website’s journal.',
   },
   '/dashboard/analytics': {
     title: 'Analytics',

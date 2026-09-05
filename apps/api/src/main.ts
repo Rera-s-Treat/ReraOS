@@ -9,8 +9,8 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  const uploadsDir = join(process.cwd(), 'uploads', 'products');
-  fs.mkdirSync(uploadsDir, { recursive: true });
+  fs.mkdirSync(join(process.cwd(), 'uploads', 'products'), { recursive: true });
+  fs.mkdirSync(join(process.cwd(), 'uploads', 'journal'), { recursive: true });
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
 
   app.useGlobalPipes(

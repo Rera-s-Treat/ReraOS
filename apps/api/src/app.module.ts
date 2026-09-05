@@ -12,6 +12,7 @@ import { CustomersModule } from './modules/customers/customers.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { CommunityModule } from './modules/community/community.module';
 import { EventsModule } from './modules/events/events.module';
+import { JournalModule } from './modules/journal/journal.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { EventsModule } from './modules/events/events.module';
     CategoriesModule,
     CommunityModule,
     EventsModule,
+    JournalModule,
   ],
 })
 export class AppModule {}
