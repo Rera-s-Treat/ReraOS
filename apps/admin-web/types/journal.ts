@@ -20,4 +20,5 @@ export interface JournalPostFormPayload {
   body: string;
   status?: JournalStatus;
   coverImage?: File;
+  removeCoverImage?: boolean;
 }

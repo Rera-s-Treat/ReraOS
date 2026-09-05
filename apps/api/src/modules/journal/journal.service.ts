@@ -58,11 +58,14 @@ export class JournalService {
     const becomingPublished =
       dto.status === JournalStatus.PUBLISHED && post.status !== JournalStatus.PUBLISHED;
 
+    const { removeCoverImage, ...rest } = dto;
+    const nextCoverImage = coverImage ?? (removeCoverImage ? null : undefined);
+
     return this.prisma.journalPost.update({
       where: { id },
       data: {
-        ...dto,
-        coverImage: coverImage ?? undefined,
+        ...rest,
+        coverImage: nextCoverImage,
         publishedAt: becomingPublished ? new Date() : undefined,
       },
     });

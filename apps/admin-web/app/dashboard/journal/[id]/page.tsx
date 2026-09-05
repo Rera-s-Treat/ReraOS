@@ -32,9 +32,21 @@ export default function JournalDetailPage() {
   const [error, setError] = useState('');
   const [form, setForm] = useState<FormState | null>(null);
   const [coverImage, setCoverImage] = useState<File | null>(null);
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
+  const [removeCoverImage, setRemoveCoverImage] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!coverImage) {
+      setCoverPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(coverImage);
+    setCoverPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [coverImage]);
 
   const fetchPost = async () => {
     if (!postId) return;
@@ -78,10 +90,12 @@ export default function JournalDetailPage() {
         body: form.body.trim(),
         status: form.status,
         coverImage: coverImage ?? undefined,
+        removeCoverImage: removeCoverImage && !coverImage,
       });
 
       setSavedAt(Date.now());
       setCoverImage(null);
+      setRemoveCoverImage(false);
       fetchPost();
     } catch (err: any) {
       setSaveError(err?.response?.data?.message || 'Failed to save changes');
@@ -192,18 +206,65 @@ export default function JournalDetailPage() {
 
         <div style={fieldStyle}>
           <label>Cover photo</label>
-          {post.coverImage && !coverImage && (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={getJournalImageUrl(post.coverImage)}
-              alt=""
-              style={{ maxWidth: 240, borderRadius: 8, marginBottom: 8, display: 'block' }}
-            />
+
+          {coverPreviewUrl && (
+            <div>
+              <span style={{ ...hintStyle, display: 'block', marginBottom: 4 }}>New photo (not saved yet)</span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={coverPreviewUrl}
+                alt=""
+                style={{ maxWidth: 240, borderRadius: 8, marginBottom: 8, display: 'block' }}
+              />
+              <button
+                type="button"
+                onClick={() => setCoverImage(null)}
+                style={removeBtnStyle}
+              >
+                Cancel new photo
+              </button>
+            </div>
           )}
+
+          {!coverPreviewUrl && post.coverImage && !removeCoverImage && (
+            <div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={getJournalImageUrl(post.coverImage)}
+                alt=""
+                style={{ maxWidth: 240, borderRadius: 8, marginBottom: 8, display: 'block' }}
+              />
+              <button
+                type="button"
+                onClick={() => setRemoveCoverImage(true)}
+                style={removeBtnStyle}
+              >
+                Remove photo
+              </button>
+            </div>
+          )}
+
+          {!coverPreviewUrl && post.coverImage && removeCoverImage && (
+            <p style={{ ...hintStyle, marginBottom: 8 }}>
+              Photo will be removed when you save.{' '}
+              <button
+                type="button"
+                onClick={() => setRemoveCoverImage(false)}
+                style={undoBtnStyle}
+              >
+                Undo
+              </button>
+            </p>
+          )}
+
           <input
             type="file"
             accept="image/*"
-            onChange={(e) => setCoverImage(e.target.files?.[0] ?? null)}
+            onChange={(e) => {
+              const file = e.target.files?.[0] ?? null;
+              setCoverImage(file);
+              if (file) setRemoveCoverImage(false);
+            }}
             style={inputStyle}
           />
         </div>
@@ -276,6 +337,28 @@ const inputStyle: React.CSSProperties = {
 };
 
 const hintStyle: React.CSSProperties = { fontSize: 12, color: '#888' };
+
+const removeBtnStyle: React.CSSProperties = {
+  padding: '6px 12px',
+  fontSize: 12,
+  fontWeight: 600,
+  background: '#fff',
+  color: '#b42318',
+  border: '1px solid #f0b4ab',
+  borderRadius: 6,
+  cursor: 'pointer',
+};
+
+const undoBtnStyle: React.CSSProperties = {
+  padding: 0,
+  fontSize: 12,
+  fontWeight: 600,
+  color: '#E8621A',
+  background: 'none',
+  border: 'none',
+  textDecoration: 'underline',
+  cursor: 'pointer',
+};
 
 const submitBtnStyle: React.CSSProperties = {
   padding: '12px 24px',

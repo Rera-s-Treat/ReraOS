@@ -141,6 +141,9 @@ export class EventsService {
       throw new NotFoundException('RSVP not found');
     }
 
+    const numberAttendingChanged =
+      dto.numberAttending !== undefined && dto.numberAttending !== rsvp.numberAttending;
+
     const updated = await this.prisma.eventRsvp.update({
       where: { id: rsvpId },
       data: dto,
@@ -151,6 +154,17 @@ export class EventsService {
         slugTag(`ATTENDED_${rsvp.event.slug}`),
       ]).catch((error) =>
         this.logger.error('Brevo attended-tag sync failed', error as Error),
+      );
+    }
+
+    if (numberAttendingChanged && rsvp.email) {
+      void this.sendRsvpUpdateEmail(
+        rsvp.email,
+        rsvp.name,
+        rsvp.event,
+        updated.numberAttending,
+      ).catch((error) =>
+        this.logger.error('RSVP update email failed', error as Error),
       );
     }
 
@@ -340,6 +354,33 @@ We'll see you there.
       where: { id: rsvpId },
       data: { confirmationSentAt: new Date() },
     });
+  }
+
+  private async sendRsvpUpdateEmail(
+    email: string,
+    name: string,
+    event: { title: string; eventDate: Date | null },
+    numberAttending: number,
+  ): Promise<void> {
+    const body = `Hi ${firstName(name)},
+
+We've updated your RSVP for **${event.title}**.
+
+**Here are your updated details:**
+
+**Date:** ${formatEventDate(event.eventDate)}
+**Time:** ${formatEventTime(event.eventDate)}
+**Number Attending:** ${numberAttending}
+
+If anything here doesn't look right, just reply to this email and we'll sort it out.
+
+**Rera's Treat**`;
+
+    await this.notificationsService.sendEmail(
+      email,
+      `Your RSVP has been updated — ${event.title}`,
+      body,
+    );
   }
 
   /**

@@ -138,6 +138,7 @@ export default function EventDetailPage() {
     try {
       await updateRsvp(eventId, rsvp.id, {
         attendanceStatus: changes.attendanceStatus,
+        numberAttending: changes.numberAttending,
         feedback: changes.feedback ?? undefined,
         feedbackRating: changes.feedbackRating ?? undefined,
       });
@@ -453,12 +454,29 @@ function RsvpRow({
   onUpdate: (rsvp: EventRsvp, changes: Partial<EventRsvp>) => void;
 }) {
   const [feedback, setFeedback] = useState(rsvp.feedback ?? '');
+  const [numberAttending, setNumberAttending] = useState(String(rsvp.numberAttending));
 
   return (
     <tr>
       <td style={tdStyle}>{rsvp.name}</td>
       <td style={tdStyle}>{rsvp.email || rsvp.phone || '—'}</td>
-      <td style={tdStyle}>{rsvp.numberAttending}</td>
+      <td style={tdStyle}>
+        <input
+          type="number"
+          min="1"
+          value={numberAttending}
+          onChange={(e) => setNumberAttending(e.target.value)}
+          onBlur={() => {
+            const parsed = Number(numberAttending);
+            if (parsed >= 1 && parsed !== rsvp.numberAttending) {
+              onUpdate(rsvp, { numberAttending: parsed });
+            } else {
+              setNumberAttending(String(rsvp.numberAttending));
+            }
+          }}
+          style={{ ...inputStyle, width: 64, padding: '8px 10px', fontSize: 13 }}
+        />
+      </td>
       <td style={tdStyle}>{rsvp.interests.join(', ') || '—'}</td>
       <td style={tdStyle}>{rsvp.dietaryNote || '—'}</td>
       <td style={tdStyle}>{rsvp.hearAboutUs || '—'}</td>

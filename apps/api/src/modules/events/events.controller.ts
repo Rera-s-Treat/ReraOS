@@ -53,7 +53,7 @@ export class EventsController {
 
   @Patch(':id/rsvps/:rsvpId')
   @Roles('SUPER_ADMIN', 'ADMIN', 'STAFF')
-  @ApiOperation({ summary: 'Update an RSVP (attendance status, feedback)' })
+  @ApiOperation({ summary: 'Update an RSVP (attendance status, guest count, feedback)' })
   async updateRsvp(
     @Param('id') id: string,
     @Param('rsvpId') rsvpId: string,

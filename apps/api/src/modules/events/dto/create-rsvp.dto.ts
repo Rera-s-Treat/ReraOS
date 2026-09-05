@@ -7,7 +7,6 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  Max,
   Min,
 } from 'class-validator';
 
@@ -27,12 +26,11 @@ export class CreateRsvpDto {
   @IsString()
   phone?: string;
 
-  @ApiPropertyOptional({ example: 2, default: 1, minimum: 1, maximum: 2 })
+  @ApiPropertyOptional({ example: 2, default: 1, minimum: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(2, { message: 'Up to 2 people per RSVP' })
   numberAttending?: number;
 
   @ApiPropertyOptional({ example: 'No peanuts please' })

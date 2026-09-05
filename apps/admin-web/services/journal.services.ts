@@ -27,6 +27,7 @@ function buildFormData(payload: JournalPostFormPayload): FormData {
   formData.append('body', payload.body);
   if (payload.status) formData.append('status', payload.status);
   if (payload.coverImage) formData.append('coverImage', payload.coverImage);
+  if (payload.removeCoverImage) formData.append('removeCoverImage', 'true');
   return formData;
 }
 

@@ -55,6 +55,7 @@ export type UpdateEventPayload = Partial<CreateEventPayload>;
 
 export interface UpdateRsvpPayload {
   attendanceStatus?: RsvpAttendanceStatus;
+  numberAttending?: number;
   feedback?: string;
   feedbackRating?: number;
 }

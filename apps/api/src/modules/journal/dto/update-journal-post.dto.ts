@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { JournalStatus } from '@prisma/client';
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
 
 export class UpdateJournalPostDto {
   @ApiPropertyOptional({ example: 'How Many Small Chops for 100 Guests?' })
@@ -27,4 +28,10 @@ export class UpdateJournalPostDto {
   @IsOptional()
   @IsEnum(JournalStatus)
   status?: JournalStatus;
+
+  @ApiPropertyOptional({ description: 'Clear the existing cover photo without uploading a new one' })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  removeCoverImage?: boolean;
 }

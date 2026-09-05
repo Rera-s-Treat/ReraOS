@@ -9,6 +9,13 @@ export class UpdateRsvpDto {
   @IsEnum(RsvpAttendanceStatus)
   attendanceStatus?: RsvpAttendanceStatus;
 
+  @ApiPropertyOptional({ example: 3, minimum: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  numberAttending?: number;
+
   @ApiPropertyOptional({ example: 'Loved the peppered chicken, wants it on the full menu' })
   @IsOptional()
   @IsString()
