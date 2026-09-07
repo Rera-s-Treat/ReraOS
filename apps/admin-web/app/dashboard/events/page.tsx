@@ -238,7 +238,7 @@ export default function EventsPage() {
                 <th style={thStyle}>Title</th>
                 <th style={thStyle}>Status</th>
                 <th style={thStyle}>Date</th>
-                <th style={thStyle}>RSVPs</th>
+                <th style={thStyle}>Attending</th>
                 <th style={thStyle}>Maybe Later</th>
                 <th style={thStyle}>Public link</th>
               </tr>
@@ -260,7 +260,7 @@ export default function EventsPage() {
                     {event.eventDate ? new Date(event.eventDate).toLocaleString() : '—'}
                   </td>
                   <td style={tdStyle}>
-                    {event._count?.rsvps ?? 0}
+                    {event.totalAttending ?? 0}
                     {event.capacity ? ` / ${event.capacity}` : ''}
                   </td>
                   <td style={tdStyle}>{event.dismissCount}</td>

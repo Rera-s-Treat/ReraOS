@@ -35,6 +35,7 @@ export interface RerraEvent {
   createdAt: string;
   updatedAt: string;
   _count?: { rsvps: number };
+  totalAttending?: number;
   rsvps?: EventRsvp[];
 }
 

@@ -65,10 +65,17 @@ export class EventsService {
   ) {}
 
   async getEvents() {
-    return this.prisma.event.findMany({
+    const events = await this.prisma.event.findMany({
       include: { _count: { select: { rsvps: true } } },
       orderBy: { createdAt: 'desc' },
     });
+
+    return Promise.all(
+      events.map(async (event) => ({
+        ...event,
+        totalAttending: await this.getTotalAttending(event.id),
+      })),
+    );
   }
 
   async getEventById(id: string) {
