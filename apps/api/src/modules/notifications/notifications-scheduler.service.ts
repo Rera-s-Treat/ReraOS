@@ -124,6 +124,7 @@ export class NotificationsSchedulerService {
     }
 
     const topProductIds = items
+      .filter((row): row is typeof row & { productId: string } => row.productId !== null)
       .sort((a, b) => (b._sum.quantity ?? 0) - (a._sum.quantity ?? 0))
       .slice(0, 3)
       .map((row) => row.productId);

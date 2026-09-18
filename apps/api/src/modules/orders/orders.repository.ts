@@ -103,7 +103,8 @@ export class OrdersRepository {
     totalAmount: number;
     createdByUserId?: string;
     items: Array<{
-      productId: string;
+      productId?: string;
+      customDescription?: string;
       quantity: number;
       unitPrice: number;
       lineTotal: number;
@@ -127,6 +128,7 @@ export class OrdersRepository {
         items: {
           create: data.items.map((item) => ({
             productId: item.productId,
+            customDescription: item.customDescription,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             lineTotal: item.lineTotal,

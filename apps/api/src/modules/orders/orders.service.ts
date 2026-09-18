@@ -153,14 +153,14 @@ export class OrdersService {
   }
 
   async createOrder(createOrderDto: CreateOrderDto, createdByUserId?: string) {
-    const productIds = createOrderDto.items.map((item) => item.productId);
+    const productIds = createOrderDto.items
+      .map((item) => item.productId)
+      .filter((id): id is string => !!id);
 
     const products = await this.productsRepository.findManyByIds(productIds);
-
     const productMap = new Map(products.map((product) => [product.id, product]));
 
     const missingIds = productIds.filter((id) => !productMap.has(id));
-
     if (missingIds.length > 0) {
       throw new BadRequestException(
         `Product(s) not found: ${missingIds.join(', ')}`,
@@ -168,7 +168,8 @@ export class OrdersService {
     }
 
     const unavailableProducts = createOrderDto.items
-      .map((item) => productMap.get(item.productId)!)
+      .filter((item) => item.productId)
+      .map((item) => productMap.get(item.productId!)!)
       .filter((product) => product.status !== 'ACTIVE' || !product.isAvailable);
 
     if (unavailableProducts.length > 0) {
@@ -181,13 +182,17 @@ export class OrdersService {
 
     let subtotal = 0;
     const items = createOrderDto.items.map((item) => {
-      const product = productMap.get(item.productId)!;
-      const unitPrice = Number(product.price);
+      const product = item.productId ? productMap.get(item.productId) : undefined;
+      // A custom (non-catalog) line item requires its own price; a catalog
+      // item uses the catalog price unless the admin overrides it (e.g. a
+      // catering quote).
+      const unitPrice = item.unitPrice ?? Number(product?.price ?? 0);
       const lineTotal = unitPrice * item.quantity;
       subtotal += lineTotal;
 
       return {
         productId: item.productId,
+        customDescription: item.customDescription,
         quantity: item.quantity,
         unitPrice,
         lineTotal,
@@ -437,7 +442,7 @@ export class OrdersService {
       totalAmount: order.totalAmount,
       createdAt: order.createdAt,
       items: order.items.map((item) => ({
-        name: item.product.name,
+        name: item.product?.name ?? item.customDescription ?? 'Item',
         quantity: item.quantity,
       })),
     };

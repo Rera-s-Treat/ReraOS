@@ -126,7 +126,7 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
             <tbody>
               {order.items.map((item) => (
                 <tr key={item.id}>
-                  <td style={itemTdStyle}>{item.product.name}</td>
+                  <td style={itemTdStyle}>{item.product?.name ?? item.customDescription ?? 'Item'}</td>
                   <td style={itemTdStyle}>{item.quantity}</td>
                   <td style={itemTdStyle}>
                     {Number(item.unitPrice).toLocaleString(undefined, {

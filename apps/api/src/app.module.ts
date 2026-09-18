@@ -13,6 +13,8 @@ import { CategoriesModule } from './modules/categories/categories.module';
 import { CommunityModule } from './modules/community/community.module';
 import { EventsModule } from './modules/events/events.module';
 import { JournalModule } from './modules/journal/journal.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
+import { StaffModule } from './modules/staff/staff.module';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { JournalModule } from './modules/journal/journal.module';
     CommunityModule,
     EventsModule,
     JournalModule,
+    ReviewsModule,
+    StaffModule,
   ],
 })
 export class AppModule {}

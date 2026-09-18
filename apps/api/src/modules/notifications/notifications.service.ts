@@ -18,6 +18,7 @@ const ADMIN_CC_EMAIL =
 const STAFF_SMS_NUMBER =
   process.env.STAFF_NOTIFICATION_PHONE || '09124800610';
 const PICKUP_LOCATION = process.env.PICKUP_LOCATION_LABEL || 'Ogijo, Ogun State';
+const PUBLIC_SITE_ORIGIN = 'https://rerastreat.com.ng';
 
 const RESEND_API_URL = 'https://api.resend.com/emails';
 const RESEND_DEFAULT_FROM = "Rera's Treat <onboarding@resend.dev>";
@@ -41,7 +42,11 @@ interface NotifiableOrder {
   orderType?: string;
   deliveryAddress?: string | null;
   totalAmount: unknown;
-  items: Array<{ quantity: number; product: { name: string } }>;
+  items: Array<{
+    quantity: number;
+    product?: { name: string } | null;
+    customDescription?: string | null;
+  }>;
 }
 
 interface DispatchAdminPayload {
@@ -68,7 +73,9 @@ function formatNaira(amount: unknown): string {
 }
 
 function summarizeItems(items: NotifiableOrder['items']): string {
-  return items.map((item) => `${item.quantity}× ${item.product.name}`).join(', ');
+  return items
+    .map((item) => `${item.quantity}× ${item.product?.name ?? item.customDescription ?? 'Item'}`)
+    .join(', ');
 }
 
 function fulfillmentLine(order: NotifiableOrder): string {
@@ -560,6 +567,8 @@ See you soon.
   }
 
   async notifyOrderCompleted(order: NotifiableOrder): Promise<void> {
+    const reviewUrl = order.id ? `${PUBLIC_SITE_ORIGIN}/review?order=${order.id}` : null;
+
     await this.notifyCustomer({
       type: NotificationType.ORDER_COMPLETED,
       category: NotificationCategory.ORDER,
@@ -573,7 +582,7 @@ Now we need to know:
 Was it good?
 
 Tell us what you thought. We read every review, and yes, we like the good ones very much. 😌
-
+${reviewUrl ? `\nLeave a review here: ${reviewUrl}\n` : ''}
 Until your next order,
 
 Rera's Treat
@@ -585,7 +594,7 @@ Order #${order.orderNumber} is complete.
 Now, tell us honestly...
 
 How was it? 👀
-
+${reviewUrl ? `\nLeave a review: ${reviewUrl}\n` : ''}
 We'd love to hear from you.
 
 — Rera's Treat`,

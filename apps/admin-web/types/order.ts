@@ -1,4 +1,4 @@
-export type OrderChannel = 'WHATSAPP' | 'MANUAL' | 'WALK_IN' | 'WEBSITE';
+export type OrderChannel = 'WHATSAPP' | 'MANUAL' | 'WALK_IN' | 'WEBSITE' | 'CATERING';
 export type OrderType = 'PICKUP' | 'DELIVERY' | 'DINE_IN';
 export type PaymentStatus =
   | 'PENDING_CONFIRMATION'
@@ -26,12 +26,13 @@ export interface OrderItemProductRef {
 export interface OrderItem {
   id: string;
   orderId: string;
-  productId: string;
+  productId?: string | null;
+  customDescription?: string | null;
   quantity: number;
   unitPrice: string;
   lineTotal: string;
   createdAt?: string;
-  product: OrderItemProductRef;
+  product?: OrderItemProductRef | null;
 }
 
 export interface OrderCreatedByRef {
@@ -85,8 +86,10 @@ export interface OrderFilters {
 }
 
 export interface CreateOrderItemPayload {
-  productId: string;
+  productId?: string;
+  customDescription?: string;
   quantity: number;
+  unitPrice?: number;
 }
 
 export interface CreateOrderPayload {

@@ -174,6 +174,7 @@ export class DashboardService {
     });
 
     const ranked = grouped
+      .filter((row): row is typeof row & { productId: string } => row.productId !== null)
       .map((row) => ({
         productId: row.productId,
         quantitySold: row._sum.quantity ?? 0,
@@ -349,6 +350,10 @@ export class DashboardService {
           }
 
           for (const item of order.items) {
+            // Custom (non-catalog) line items, e.g. a catering fee, aren't a
+            // product to aggregate sales-by-product for.
+            if (!item.productId || !item.product) continue;
+
             const existing = productAgg.get(item.productId);
             const lineRevenue = Number(item.lineTotal);
 

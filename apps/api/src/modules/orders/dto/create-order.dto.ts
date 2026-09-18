@@ -13,13 +13,38 @@ import {
   IsString,
   IsUUID,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 
 class CreateOrderItemDto {
-  @ApiProperty({ example: '3b1f2e2a-4b1a-4c9a-9c3a-6d6b8f9e0a1b' })
+  @ApiPropertyOptional({
+    example: '3b1f2e2a-4b1a-4c9a-9c3a-6d6b8f9e0a1b',
+    description: 'A catalog product. Omit for a custom line item (provide customDescription instead).',
+  })
+  @ValidateIf((item: CreateOrderItemDto) => !item.customDescription)
   @IsUUID()
-  productId!: string;
+  productId?: string;
+
+  @ApiPropertyOptional({
+    example: 'Setup & service fee',
+    description: 'For a line item that is not a catalog product (e.g. a catering fee). Omit for catalog items.',
+  })
+  @ValidateIf((item: CreateOrderItemDto) => !item.productId)
+  @IsString()
+  @IsNotEmpty()
+  customDescription?: string;
+
+  @ApiPropertyOptional({
+    example: 15000,
+    description:
+      'Overrides the catalog price for this item, or sets the price for a custom line item (required when there is no productId).',
+  })
+  @ValidateIf((item: CreateOrderItemDto) => !item.productId || item.unitPrice !== undefined)
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  unitPrice?: number;
 
   @ApiProperty({ example: 2 })
   @IsInt()

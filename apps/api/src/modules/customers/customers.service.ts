@@ -245,6 +245,10 @@ export class CustomersService {
 
     for (const order of orders) {
       for (const item of order.items) {
+        // Custom (non-catalog) line items, e.g. a catering fee, aren't a
+        // product to track ordering behavior for.
+        if (!item.productId || !item.product) continue;
+
         const existing = productCounts.get(item.productId);
 
         const categoryName = item.product.category?.name ?? null;
@@ -302,7 +306,7 @@ export class CustomersService {
         fulfillmentStatus: order.fulfillmentStatus,
         createdAt: order.createdAt,
         itemsSummary: order.items
-          .map((item) => `${item.quantity}× ${item.product.name}`)
+          .map((item) => `${item.quantity}× ${item.product?.name ?? item.customDescription ?? 'Item'}`)
           .join(', '),
       })),
       productBehavior: {
@@ -310,7 +314,7 @@ export class CustomersService {
         favoriteCategory,
         lastOrderedItems: latestOrder.items.map((item) => ({
           productId: item.productId,
-          name: item.product.name,
+          name: item.product?.name ?? item.customDescription ?? 'Item',
           quantity: item.quantity,
         })),
       },
