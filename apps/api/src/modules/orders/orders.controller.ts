@@ -17,6 +17,7 @@ import { RolesGuard } from '../../auth/roles.guard';
 import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { FindOrdersQueryDto } from './dto/find-orders-query.dto';
+import { RecordPaymentDto } from './dto/record-payment.dto';
 import { SendOrderUpdateDto } from './dto/send-order-update.dto';
 import { UpdateFulfillmentStatusDto } from './dto/update-fulfillment-status.dto';
 import { UpdateKitchenStatusDto } from './dto/update-kitchen-status.dto';
@@ -61,6 +62,13 @@ export class OrdersController {
     @Req() req: { user: JwtPayload },
   ) {
     return this.ordersService.createOrder(body, req.user.id);
+  }
+
+  @Post(':id/payments')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'STAFF')
+  @ApiOperation({ summary: 'Record a payment against an order (supports partial/installment payments)' })
+  async recordPayment(@Param('id') id: string, @Body() body: RecordPaymentDto) {
+    return this.ordersService.recordPayment(id, body);
   }
 
   @Patch(':id/payment-status')

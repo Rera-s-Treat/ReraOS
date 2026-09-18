@@ -41,6 +41,14 @@ export interface OrderCreatedByRef {
   lastName: string;
 }
 
+export interface OrderPayment {
+  id: string;
+  orderId: string;
+  amount: string;
+  note?: string | null;
+  recordedAt: string;
+}
+
 export interface Order {
   id: string;
   orderNumber: string;
@@ -62,6 +70,7 @@ export interface Order {
   createdByUserId?: string | null;
   createdBy?: OrderCreatedByRef | null;
   items: OrderItem[];
+  payments?: OrderPayment[];
   unifiedStatus?: string;
   createdAt?: string;
   updatedAt?: string;

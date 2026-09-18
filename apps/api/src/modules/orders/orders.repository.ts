@@ -22,6 +22,9 @@ const orderInclude = {
   createdBy: {
     select: { id: true, firstName: true, lastName: true },
   },
+  payments: {
+    orderBy: { recordedAt: 'desc' as const },
+  },
 } as const;
 
 export interface OrderFilters {
@@ -143,6 +146,17 @@ export class OrdersRepository {
     return this.prisma.order.update({
       where: { id },
       data: { paymentStatus },
+      include: orderInclude,
+    });
+  }
+
+  async recordPayment(orderId: string, amount: number, note?: string) {
+    await this.prisma.orderPayment.create({
+      data: { orderId, amount, note },
+    });
+
+    return this.prisma.order.findUnique({
+      where: { id: orderId },
       include: orderInclude,
     });
   }

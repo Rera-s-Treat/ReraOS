@@ -4,6 +4,7 @@ import {
   KitchenStatus,
   NotificationCategory,
   NotificationType,
+  OrderChannel,
   PaymentStatus,
 } from '@prisma/client';
 
@@ -16,6 +17,7 @@ import {
 } from '../notifications/notifications.service';
 import { ProductsRepository } from '../products/products.repository';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { RecordPaymentDto } from './dto/record-payment.dto';
 import { UpdateFulfillmentStatusDto } from './dto/update-fulfillment-status.dto';
 import { UpdateKitchenStatusDto } from './dto/update-kitchen-status.dto';
 import { UpdatePaymentStatusDto } from './dto/update-payment-status.dto';
@@ -167,17 +169,22 @@ export class OrdersService {
       );
     }
 
-    const unavailableProducts = createOrderDto.items
-      .filter((item) => item.productId)
-      .map((item) => productMap.get(item.productId!)!)
-      .filter((product) => product.status !== 'ACTIVE' || !product.isAvailable);
+    // Catering orders are hand-quoted by an admin and may include items that
+    // aren't on the day-to-day retail menu (or are marked unavailable there)
+    // — availability only gates the customer-facing ordering flows.
+    if (createOrderDto.channel !== OrderChannel.CATERING) {
+      const unavailableProducts = createOrderDto.items
+        .filter((item) => item.productId)
+        .map((item) => productMap.get(item.productId!)!)
+        .filter((product) => product.status !== 'ACTIVE' || !product.isAvailable);
 
-    if (unavailableProducts.length > 0) {
-      throw new BadRequestException(
-        `Product(s) not available: ${unavailableProducts
-          .map((product) => product.name)
-          .join(', ')}`,
-      );
+      if (unavailableProducts.length > 0) {
+        throw new BadRequestException(
+          `Product(s) not available: ${unavailableProducts
+            .map((product) => product.name)
+            .join(', ')}`,
+        );
+      }
     }
 
     let subtotal = 0;
@@ -444,6 +451,53 @@ export class OrdersService {
       items: order.items.map((item) => ({
         name: item.product?.name ?? item.customDescription ?? 'Item',
         quantity: item.quantity,
+      })),
+    };
+  }
+
+  async recordPayment(id: string, dto: RecordPaymentDto) {
+    await this.getOrderById(id);
+    const updated = await this.ordersRepository.recordPayment(id, dto.amount, dto.note);
+    return this.withUnifiedStatus(updated!);
+  }
+
+  /**
+   * Public, shareable invoice for an order - keyed by the order's own
+   * unguessable id, no auth. Deliberately omits phone/email and any
+   * internal admin notes attached to payments.
+   */
+  async getInvoice(id: string) {
+    const order = await this.ordersRepository.findById(id);
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    const amountPaid = order.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const balance = Math.max(Number(order.totalAmount) - amountPaid, 0);
+
+    return {
+      orderNumber: order.orderNumber,
+      createdAt: order.createdAt,
+      customerName: order.customerName,
+      channel: order.channel,
+      orderType: order.orderType,
+      tableNumber: order.tableNumber,
+      deliveryAddress: order.deliveryAddress,
+      items: order.items.map((item) => ({
+        name: item.product?.name ?? item.customDescription ?? 'Item',
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        lineTotal: item.lineTotal,
+      })),
+      subtotal: order.subtotal,
+      discountAmount: order.discountAmount,
+      totalAmount: order.totalAmount,
+      amountPaid,
+      balance,
+      isSettled: balance <= 0,
+      payments: order.payments.map((p) => ({
+        amount: p.amount,
+        recordedAt: p.recordedAt,
       })),
     };
   }

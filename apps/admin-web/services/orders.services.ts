@@ -98,3 +98,12 @@ export const sendOrderUpdate = async (
   });
   return response.data;
 };
+
+export const recordPayment = async (
+  id: string,
+  amount: number,
+  note?: string,
+): Promise<Order> => {
+  const response = await axiosInstance.post(`/orders/${id}/payments`, { amount, note });
+  return response.data;
+};
