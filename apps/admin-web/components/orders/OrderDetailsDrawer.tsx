@@ -162,7 +162,12 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
             <tbody>
               {order.items.map((item) => (
                 <tr key={item.id}>
-                  <td style={itemTdStyle}>{item.product?.name ?? item.customDescription ?? 'Item'}</td>
+                  <td style={itemTdStyle}>
+                    {item.product?.name ?? item.customDescription ?? 'Item'}
+                    {item.product?.description && (
+                      <div style={itemDescStyle}>{item.product.description}</div>
+                    )}
+                  </td>
                   <td style={itemTdStyle}>{item.quantity}</td>
                   <td style={itemTdStyle}>
                     {Number(item.unitPrice).toLocaleString(undefined, {
@@ -446,6 +451,12 @@ const itemThStyle: React.CSSProperties = {
 const itemTdStyle: React.CSSProperties = {
   padding: '6px 8px',
   borderBottom: '1px solid #f1f5f9',
+};
+
+const itemDescStyle: React.CSSProperties = {
+  fontSize: 12,
+  color: '#888',
+  marginTop: 2,
 };
 
 const totalsBlockStyle: React.CSSProperties = {

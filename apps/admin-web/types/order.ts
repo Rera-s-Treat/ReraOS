@@ -21,6 +21,7 @@ export interface OrderItemProductRef {
   id: string;
   name: string;
   sku?: string | null;
+  description?: string | null;
 }
 
 export interface OrderItem {

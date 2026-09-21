@@ -15,7 +15,7 @@ const orderInclude = {
   items: {
     include: {
       product: {
-        select: { id: true, name: true, sku: true },
+        select: { id: true, name: true, sku: true, description: true },
       },
     },
   },
