@@ -5,6 +5,14 @@ export interface Employee {
   phone?: string | null;
   monthlySalary?: string | null;
   isActive: boolean;
+  birthdayDay?: number | null;
+  birthdayMonth?: number | null;
+  address?: string | null;
+  qualification?: string | null;
+  allergy?: string | null;
+  bankName?: string | null;
+  bankAccountNumber?: string | null;
+  bankAccountName?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -45,6 +53,14 @@ export interface CreateEmployeePayload {
   role?: string;
   phone?: string;
   monthlySalary?: number;
+  birthdayDay?: number;
+  birthdayMonth?: number;
+  address?: string;
+  qualification?: string;
+  allergy?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankAccountName?: string;
 }
 
 export type UpdateEmployeePayload = Partial<CreateEmployeePayload> & { isActive?: boolean };

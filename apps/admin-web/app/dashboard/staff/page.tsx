@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 
+import { EmployeeFormModal } from '@/components/staff/EmployeeFormModal';
 import {
-  createEmployee,
   createPayrollEntry,
   getAttendanceRecords,
   getEmployees,
@@ -20,6 +20,10 @@ import {
 
 type Tab = 'employees' | 'attendance' | 'payroll';
 
+const MONTH_NAMES = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-NG', { dateStyle: 'medium' });
 }
@@ -32,6 +36,11 @@ function formatTime(iso: string | null): string {
 function formatMoney(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return '—';
   return `₦${Number(value).toLocaleString()}`;
+}
+
+function formatBirthday(day?: number | null, month?: number | null): string {
+  if (!day || !month) return '—';
+  return `${day} ${MONTH_NAMES[month - 1]}`;
 }
 
 export default function StaffPage() {
@@ -112,40 +121,17 @@ function EmployeesTab({
   employees: Employee[];
   onChanged: () => void;
 }) {
-  const [isAdding, setIsAdding] = useState(false);
-  const [fullName, setFullName] = useState('');
-  const [role, setRole] = useState('');
-  const [phone, setPhone] = useState('');
-  const [monthlySalary, setMonthlySalary] = useState('');
-  const [error, setError] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
 
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!fullName.trim()) {
-      setError('Name is required');
-      return;
-    }
-    try {
-      setIsSaving(true);
-      setError('');
-      await createEmployee({
-        fullName: fullName.trim(),
-        role: role.trim() || undefined,
-        phone: phone.trim() || undefined,
-        monthlySalary: monthlySalary.trim() ? Number(monthlySalary) : undefined,
-      });
-      setFullName('');
-      setRole('');
-      setPhone('');
-      setMonthlySalary('');
-      setIsAdding(false);
-      onChanged();
-    } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to add employee');
-    } finally {
-      setIsSaving(false);
-    }
+  const openAddForm = () => {
+    setEditingEmployee(null);
+    setIsFormOpen(true);
+  };
+
+  const openEditForm = (employee: Employee) => {
+    setEditingEmployee(employee);
+    setIsFormOpen(true);
   };
 
   const toggleActive = async (employee: Employee) => {
@@ -157,45 +143,17 @@ function EmployeesTab({
     <div style={cardStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <h2 style={sectionTitleStyle}>Employees</h2>
-        <button onClick={() => setIsAdding((v) => !v)} style={secondaryBtnStyle}>
-          {isAdding ? 'Cancel' : '+ Add Employee'}
+        <button onClick={openAddForm} style={secondaryBtnStyle}>
+          + Add Employee
         </button>
       </div>
 
-      {isAdding && (
-        <form onSubmit={handleAdd} style={addFormStyle}>
-          <input
-            placeholder="Full name"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            style={inputStyle}
-          />
-          <input
-            placeholder="Role (optional)"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            style={inputStyle}
-          />
-          <input
-            placeholder="Phone (optional)"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            style={inputStyle}
-          />
-          <input
-            type="number"
-            min="0"
-            placeholder="Monthly salary (optional)"
-            value={monthlySalary}
-            onChange={(e) => setMonthlySalary(e.target.value)}
-            style={inputStyle}
-          />
-          <button type="submit" disabled={isSaving} style={submitBtnStyle}>
-            {isSaving ? 'Saving…' : 'Save'}
-          </button>
-          {error && <p style={{ color: 'red', fontSize: 13, width: '100%' }}>{error}</p>}
-        </form>
-      )}
+      <EmployeeFormModal
+        isOpen={isFormOpen}
+        employee={editingEmployee}
+        onClose={() => setIsFormOpen(false)}
+        onSaved={onChanged}
+      />
 
       <div style={{ overflowX: 'auto' }}>
         <table style={tableStyle}>
@@ -204,6 +162,7 @@ function EmployeesTab({
               <th style={thStyle}>Name</th>
               <th style={thStyle}>Role</th>
               <th style={thStyle}>Phone</th>
+              <th style={thStyle}>Birthday</th>
               <th style={thStyle}>Monthly Salary</th>
               <th style={thStyle}>Status</th>
               <th style={thStyle}></th>
@@ -215,18 +174,24 @@ function EmployeesTab({
                 <td style={tdStyle}>{emp.fullName}</td>
                 <td style={tdStyle}>{emp.role || '—'}</td>
                 <td style={tdStyle}>{emp.phone || '—'}</td>
+                <td style={tdStyle}>{formatBirthday(emp.birthdayDay, emp.birthdayMonth)}</td>
                 <td style={tdStyle}>{formatMoney(emp.monthlySalary)}</td>
                 <td style={tdStyle}>{emp.isActive ? 'Active' : 'Inactive'}</td>
                 <td style={tdStyle}>
-                  <button onClick={() => toggleActive(emp)} style={linkBtnStyle}>
-                    {emp.isActive ? 'Deactivate' : 'Reactivate'}
-                  </button>
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <button onClick={() => openEditForm(emp)} style={linkBtnStyle}>
+                      Edit
+                    </button>
+                    <button onClick={() => toggleActive(emp)} style={linkBtnStyle}>
+                      {emp.isActive ? 'Deactivate' : 'Reactivate'}
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
             {employees.length === 0 && (
               <tr>
-                <td style={tdStyle} colSpan={6}>
+                <td style={tdStyle} colSpan={7}>
                   No employees yet.
                 </td>
               </tr>

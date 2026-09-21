@@ -642,19 +642,31 @@ model JournalPost {
 // ---------------------------------------------------------------------
 
 model Employee {
-  id            String             @id @default(uuid())
+  id                String             @id @default(uuid())
 
-  fullName      String
-  role          String?
-  phone         String?
-  monthlySalary Decimal?           @db.Decimal(12, 2)
-  isActive      Boolean            @default(true)
+  fullName          String
+  role              String?
+  phone             String?
+  monthlySalary     Decimal?           @db.Decimal(12, 2)
+  isActive          Boolean            @default(true)
 
-  attendance    AttendanceRecord[]
-  payrollEntries PayrollEntry[]
+  // Birthday is day/month only (no year) - enough for birthday reminders
+  // without storing a full date of birth.
+  birthdayDay       Int?
+  birthdayMonth     Int?
+  address           String?
+  qualification     String?
+  allergy           String?
 
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  bankName          String?
+  bankAccountNumber String?
+  bankAccountName   String?
+
+  attendance        AttendanceRecord[]
+  payrollEntries    PayrollEntry[]
+
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   @@index([isActive])
 }
