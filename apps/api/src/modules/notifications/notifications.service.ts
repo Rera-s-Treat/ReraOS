@@ -15,6 +15,8 @@ import { PrismaService } from '../../common/prisma.service';
 const STAFF_EMAIL = process.env.STAFF_NOTIFICATION_EMAIL || 'rerastreat@gmail.com';
 const ADMIN_CC_EMAIL =
   process.env.ADMIN_NOTIFICATION_CC_EMAIL || 'adeeyotemitope5@gmail.com';
+const ORDER_EMAIL_CC =
+  process.env.ORDER_NOTIFICATION_CC_EMAIL || 'testimonyadeeyo@gmail.com';
 const STAFF_SMS_NUMBER =
   process.env.STAFF_NOTIFICATION_PHONE || '09124800610';
 const PICKUP_LOCATION = process.env.PICKUP_LOCATION_LABEL || 'Ogijo, Ogun State';
@@ -299,10 +301,13 @@ export class NotificationsService {
   }
 
   private async deliverCustomerEmail(payload: DispatchCustomerPayload): Promise<void> {
+    const cc = process.env.RESEND_DOMAIN_VERIFIED === 'true' ? ORDER_EMAIL_CC : undefined;
+
     const result = await this.sendEmailRaw(
       payload.recipientEmail!,
       payload.title,
       payload.emailBody,
+      cc,
     );
 
     await this.prisma.notification.create({
