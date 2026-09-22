@@ -53,6 +53,33 @@ export const updateProduct = async (
   id: string,
   payload: UpdateProductPayload,
 ): Promise<Product> => {
-  const response = await axiosInstance.patch(`/products/${id}`, payload);
+  const formData = new FormData();
+
+  if (payload.name !== undefined) formData.append('name', payload.name);
+  if (payload.sku !== undefined) formData.append('sku', payload.sku);
+  if (payload.description !== undefined) formData.append('description', payload.description);
+  if (payload.servings !== undefined) formData.append('servings', payload.servings);
+  (payload.contents ?? []).forEach((item) => formData.append('contents', item));
+  if (payload.price !== undefined) formData.append('price', String(payload.price));
+  if (payload.status !== undefined) formData.append('status', payload.status);
+  if (payload.isAvailable !== undefined) {
+    formData.append('isAvailable', String(payload.isAvailable));
+  }
+  if (payload.featured !== undefined) {
+    formData.append('featured', String(payload.featured));
+  }
+  if (payload.sortOrder !== undefined) {
+    formData.append('sortOrder', String(payload.sortOrder));
+  }
+  if (payload.categoryId !== undefined) formData.append('categoryId', payload.categoryId);
+  if (payload.removeImages !== undefined) {
+    formData.append('removeImages', String(payload.removeImages));
+  }
+
+  (payload.images ?? []).forEach((file) => {
+    formData.append('images', file);
+  });
+
+  const response = await axiosInstance.patch(`/products/${id}`, formData);
   return response.data;
 };

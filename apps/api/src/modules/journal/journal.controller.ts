@@ -1,4 +1,3 @@
-import { extname } from 'path';
 import {
   Body,
   Controller,
@@ -13,11 +12,12 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { RolesGuard } from '../../auth/roles.guard';
+import { uploadToR2 } from '../../common/r2-storage';
 import { CreateJournalPostDto } from './dto/create-journal-post.dto';
 import { UpdateJournalPostDto } from './dto/update-journal-post.dto';
 import { JournalService } from './journal.service';
@@ -25,13 +25,7 @@ import { JournalService } from './journal.service';
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 
 const coverImageInterceptor = FileInterceptor('coverImage', {
-  storage: diskStorage({
-    destination: './uploads/journal',
-    filename: (_req, file, callback) => {
-      const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
-      callback(null, uniqueName);
-    },
-  }),
+  storage: memoryStorage(),
   limits: { fileSize: MAX_IMAGE_SIZE_BYTES },
 });
 
@@ -65,7 +59,7 @@ export class JournalController {
     @Body() body: CreateJournalPostDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    const coverImage = file ? `/uploads/journal/${file.filename}` : undefined;
+    const coverImage = file ? await uploadToR2('journal', file) : undefined;
     return this.journalService.createPost(body, coverImage);
   }
 
@@ -79,7 +73,7 @@ export class JournalController {
     @Body() body: UpdateJournalPostDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    const coverImage = file ? `/uploads/journal/${file.filename}` : undefined;
+    const coverImage = file ? await uploadToR2('journal', file) : undefined;
     return this.journalService.updatePost(id, body, coverImage);
   }
 

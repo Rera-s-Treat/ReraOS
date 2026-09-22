@@ -67,7 +67,7 @@ export class ProductsService {
     });
   }
 
-  async updateProduct(id: string, updateProductDto: UpdateProductDto) {
+  async updateProduct(id: string, updateProductDto: UpdateProductDto, images?: string[]) {
     const existingProduct = await this.productsRepository.findById(id);
 
     if (!existingProduct) {
@@ -93,6 +93,10 @@ export class ProductsService {
       }
     }
 
+    // New images replace the whole set; removeImages explicitly clears them
+    // when the admin isn't uploading a replacement; otherwise leave as-is.
+    const nextImages = images ?? (updateProductDto.removeImages ? [] : undefined);
+
     return this.productsRepository.update(id, {
       name: updateProductDto.name,
       sku: updateProductDto.sku,
@@ -105,6 +109,7 @@ export class ProductsService {
       featured: updateProductDto.featured,
       sortOrder: updateProductDto.sortOrder,
       categoryId: updateProductDto.categoryId,
+      images: nextImages,
     });
   }
 }

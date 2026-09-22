@@ -84,6 +84,7 @@ export class ProductsRepository {
       featured?: boolean;
       sortOrder?: number;
       categoryId?: string;
+      images?: string[];
     },
   ) {
     return this.prisma.product.update({
@@ -104,6 +105,7 @@ export class ProductsRepository {
         ...(data.featured !== undefined ? { featured: data.featured } : {}),
         ...(data.sortOrder !== undefined ? { sortOrder: data.sortOrder } : {}),
         ...(data.categoryId !== undefined ? { categoryId: data.categoryId } : {}),
+        ...(data.images !== undefined ? { images: data.images } : {}),
       },
       include: productInclude,
     });

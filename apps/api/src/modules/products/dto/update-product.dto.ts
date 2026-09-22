@@ -47,6 +47,7 @@ export class UpdateProductDto {
 
   @ApiPropertyOptional({ example: 3500 })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   price?: number;
@@ -64,6 +65,9 @@ export class UpdateProductDto {
     description: 'Whether the product currently appears on the menu',
   })
   @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value === 'true' : value,
+  )
   @IsBoolean()
   isAvailable?: boolean;
 
@@ -91,4 +95,15 @@ export class UpdateProductDto {
   @IsOptional()
   @IsString()
   categoryId?: string;
+
+  @ApiPropertyOptional({
+    example: false,
+    description: 'Clear all existing images (ignored if new images are uploaded)',
+  })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value === 'true' : value,
+  )
+  @IsBoolean()
+  removeImages?: boolean;
 }

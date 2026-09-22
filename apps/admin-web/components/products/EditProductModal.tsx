@@ -2,8 +2,10 @@
 
 import React, { useEffect, useState } from 'react';
 import { Product } from '../../types/product';
-import { updateProduct } from '../../services/products.services';
+import { getProductImageUrl, updateProduct } from '../../services/products.services';
 import { CategorySelect } from './CategorySelect';
+
+const MAX_IMAGES = 3;
 
 interface EditProductModalProps {
   isOpen: boolean;
@@ -51,6 +53,10 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [existingImages, setExistingImages] = useState<string[]>([]);
+  const [removeImages, setRemoveImages] = useState(false);
+  const [newImages, setNewImages] = useState<File[]>([]);
+  const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
 
   useEffect(() => {
     if (!isOpen || !product) return;
@@ -69,7 +75,32 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
       featured: product.featured ?? false,
       sortOrder: String(product.sortOrder ?? 0),
     });
+    setExistingImages(product.images ?? []);
+    setRemoveImages(false);
+    setNewImages([]);
+    setNewImagePreviews([]);
   }, [isOpen, product]);
+
+  const handleNewImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files ?? []).slice(0, MAX_IMAGES);
+    if (selected.length === 0) return;
+    setNewImages(selected);
+    setNewImagePreviews(selected.map((file) => URL.createObjectURL(file)));
+    setRemoveImages(false);
+    e.target.value = '';
+  };
+
+  const clearNewImages = () => {
+    setNewImages([]);
+    setNewImagePreviews([]);
+  };
+
+  const toggleRemoveImages = () => {
+    setRemoveImages((prev) => {
+      if (!prev) clearNewImages();
+      return !prev;
+    });
+  };
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
@@ -127,6 +158,8 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
         isAvailable: form.isAvailable,
         featured: form.featured,
         sortOrder: form.sortOrder.trim() ? Number(form.sortOrder) : undefined,
+        images: newImages.length ? newImages : undefined,
+        removeImages: removeImages || undefined,
       });
 
       onClose();
@@ -242,6 +275,61 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
               placeholder={'2pcs chicken\nColeslaw\nFries'}
               style={{ ...inputStyle, minHeight: 72, resize: 'vertical' }}
             />
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', marginBottom: 8 }}>
+              Images (up to {MAX_IMAGES})
+            </label>
+
+            {newImagePreviews.length > 0 ? (
+              <div style={imagePreviewRowStyle}>
+                {newImagePreviews.map((src) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img key={src} src={src} alt="" style={imagePreviewStyle} />
+                ))}
+                <button type="button" onClick={clearNewImages} style={removeImagesLinkStyle}>
+                  Cancel new photos
+                </button>
+              </div>
+            ) : (
+              !removeImages &&
+              existingImages.length > 0 && (
+                <div style={imagePreviewRowStyle}>
+                  {existingImages.map((src) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img key={src} src={getProductImageUrl(src)} alt="" style={imagePreviewStyle} />
+                  ))}
+                  <button type="button" onClick={toggleRemoveImages} style={removeImagesLinkStyle}>
+                    Remove all photos
+                  </button>
+                </div>
+              )
+            )}
+
+            {removeImages && (
+              <p style={{ fontSize: 13, color: '#b42318', marginBottom: 8 }}>
+                Photos will be removed when you save.{' '}
+                <button type="button" onClick={toggleRemoveImages} style={removeImagesLinkStyle}>
+                  Undo
+                </button>
+              </p>
+            )}
+
+            {existingImages.length === 0 && newImagePreviews.length === 0 && !removeImages && (
+              <p style={{ fontSize: 13, color: '#888', marginBottom: 8 }}>No photos yet.</p>
+            )}
+
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleNewImagesChange}
+              style={inputStyle}
+            />
+            <p style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
+              Choosing new photos replaces all existing ones.
+            </p>
           </div>
 
           <div style={fieldStyle}>
@@ -366,6 +454,32 @@ const checkboxRowStyle: React.CSSProperties = {
   gap: 8,
   marginBottom: 16,
   fontSize: 14,
+};
+
+const imagePreviewRowStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  marginBottom: 10,
+  flexWrap: 'wrap',
+};
+
+const imagePreviewStyle: React.CSSProperties = {
+  width: 72,
+  height: 72,
+  objectFit: 'cover',
+  borderRadius: 8,
+  border: '1px solid #d1d5db',
+};
+
+const removeImagesLinkStyle: React.CSSProperties = {
+  background: 'none',
+  border: 'none',
+  color: '#E8621A',
+  fontSize: 13,
+  fontWeight: 600,
+  cursor: 'pointer',
+  padding: 0,
 };
 
 const footerStyle: React.CSSProperties = {

@@ -46,4 +46,6 @@ export interface UpdateProductPayload {
   featured?: boolean;
   sortOrder?: number;
   categoryId?: string;
+  images?: File[];
+  removeImages?: boolean;
 }

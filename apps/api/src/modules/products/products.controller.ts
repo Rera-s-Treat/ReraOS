@@ -1,4 +1,3 @@
-import { extname } from 'path';
 import {
   BadRequestException,
   Body,
@@ -18,17 +17,30 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { RolesGuard } from '../../auth/roles.guard';
+import { uploadToR2 } from '../../common/r2-storage';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductsService } from './products.service';
 
 const MAX_PRODUCT_IMAGES = 3;
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
+const productImagesInterceptor = FilesInterceptor('images', MAX_PRODUCT_IMAGES, {
+  storage: memoryStorage(),
+  fileFilter: (_req, file, callback) => {
+    if (!file.mimetype.startsWith('image/')) {
+      callback(new BadRequestException('Only image files are allowed'), false);
+      return;
+    }
+    callback(null, true);
+  },
+  limits: { fileSize: MAX_IMAGE_SIZE_BYTES },
+});
 
 @ApiTags('Products')
 @ApiBearerAuth('bearer')
@@ -57,34 +69,13 @@ export class ProductsController {
   @ApiOperation({
     summary: 'Create a new product (with up to 3 images)',
   })
-  @UseInterceptors(
-    FilesInterceptor('images', MAX_PRODUCT_IMAGES, {
-      storage: diskStorage({
-        destination: './uploads/products',
-        filename: (_req, file, callback) => {
-          const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
-          callback(null, uniqueName);
-        },
-      }),
-      fileFilter: (_req, file, callback) => {
-        if (!file.mimetype.startsWith('image/')) {
-          callback(
-            new BadRequestException('Only image files are allowed'),
-            false,
-          );
-          return;
-        }
-        callback(null, true);
-      },
-      limits: { fileSize: MAX_IMAGE_SIZE_BYTES },
-    }),
-  )
+  @UseInterceptors(productImagesInterceptor)
   async createProduct(
     @Body() body: CreateProductDto,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
-    const images = (files ?? []).map(
-      (file) => `/uploads/products/${file.filename}`,
+    const images = await Promise.all(
+      (files ?? []).map((file) => uploadToR2('products', file)),
     );
 
     return this.productsService.createProduct(body, images);
@@ -92,11 +83,18 @@ export class ProductsController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN', 'ADMIN')
-  @ApiOperation({ summary: 'Update a product' })
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Update a product, optionally replacing its images' })
+  @UseInterceptors(productImagesInterceptor)
   async updateProduct(
     @Param('id') id: string,
     @Body() body: UpdateProductDto,
+    @UploadedFiles() files?: Express.Multer.File[],
   ) {
-    return this.productsService.updateProduct(id, body);
+    const images = files?.length
+      ? await Promise.all(files.map((file) => uploadToR2('products', file)))
+      : undefined;
+
+    return this.productsService.updateProduct(id, body, images);
   }
 }
