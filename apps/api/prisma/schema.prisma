@@ -132,6 +132,7 @@ model User {
   passwordHistory     PasswordHistory[]
   auditLogs           AuditLog[]
   createdOrders       Order[]           @relation("OrderCreatedBy")
+  productionLogs      ProductionLog[]
 
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
@@ -233,6 +234,8 @@ model InventoryItem {
 
   status           InventoryStatus   @default(ACTIVE)
 
+  productionUsage  ProductionMaterialUsage[]
+
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -279,6 +282,7 @@ model Product {
   images        String[]        @default([])
 
   orderItems    OrderItem[]
+  productionRecords ProductionItemMade[]
 
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
@@ -712,4 +716,60 @@ model PayrollEntry {
 
   @@index([employeeId])
   @@index([status])
+}
+
+// ---------------------------------------------------------------------
+// Daily production log — what the kitchen used and made each day
+// ---------------------------------------------------------------------
+
+model ProductionLog {
+  id               String    @id @default(uuid())
+
+  productionDate   DateTime  @db.Date
+  notes            String?
+
+  recordedByUserId String?
+  recordedBy       User?     @relation(fields: [recordedByUserId], references: [id], onDelete: SetNull)
+
+  materialsUsed    ProductionMaterialUsage[]
+  itemsMade        ProductionItemMade[]
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([productionDate])
+}
+
+model ProductionMaterialUsage {
+  id              String        @id @default(uuid())
+
+  productionLogId String
+  productionLog   ProductionLog @relation(fields: [productionLogId], references: [id], onDelete: Cascade)
+
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+
+  quantityUsed    Int
+
+  createdAt       DateTime      @default(now())
+
+  @@index([productionLogId])
+  @@index([inventoryItemId])
+}
+
+model ProductionItemMade {
+  id              String        @id @default(uuid())
+
+  productionLogId String
+  productionLog   ProductionLog @relation(fields: [productionLogId], references: [id], onDelete: Cascade)
+
+  productId       String
+  product         Product       @relation(fields: [productId], references: [id])
+
+  quantityMade    Int
+
+  createdAt       DateTime      @default(now())
+
+  @@index([productionLogId])
+  @@index([productId])
 }

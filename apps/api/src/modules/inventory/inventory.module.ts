@@ -10,5 +10,6 @@ import { InventoryService } from './inventory.service';
   imports: [NotificationsModule],
   controllers: [InventoryController],
   providers: [InventoryService, InventoryRepository, PrismaService],
+  exports: [InventoryService, InventoryRepository],
 })
 export class InventoryModule {}

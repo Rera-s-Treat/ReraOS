@@ -24,6 +24,7 @@ const navItems = [
   { label: 'Journal', href: '/dashboard/journal' },
   { label: 'Reviews', href: '/dashboard/reviews' },
   { label: 'Staff', href: '/dashboard/staff' },
+  { label: 'Production', href: '/dashboard/production' },
   { label: 'Inventory', href: '/dashboard/inventory' },
   { label: 'Settings', href: '/dashboard/settings' },
 ];
@@ -68,6 +69,10 @@ const pageMeta: Record<string, { title: string; subtitle: string }> = {
   '/dashboard/staff': {
     title: 'Staff',
     subtitle: 'Employees, daily attendance and minimal payroll.',
+  },
+  '/dashboard/production': {
+    title: 'Production',
+    subtitle: 'What the kitchen used and made each day.',
   },
   '/dashboard/analytics': {
     title: 'Analytics',
