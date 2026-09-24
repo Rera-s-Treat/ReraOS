@@ -3,7 +3,10 @@ import { Cron } from '@nestjs/schedule';
 import {
   EventStatus,
   KitchenStatus,
+  NotificationAudience,
   NotificationCategory,
+  NotificationChannel,
+  NotificationDeliveryStatus,
   NotificationType,
   PaymentStatus,
 } from '@prisma/client';
@@ -15,6 +18,8 @@ const STUCK_PENDING_HOURS = Number(process.env.STUCK_PENDING_HOURS ?? 2);
 const READY_NOT_PICKED_UP_HOURS = Number(
   process.env.READY_NOT_PICKED_UP_HOURS ?? 1,
 );
+const ADMIN_CC_EMAIL =
+  process.env.ADMIN_NOTIFICATION_CC_EMAIL || 'adeeyotemitope5@gmail.com';
 
 function formatNaira(amount: unknown): string {
   return `₦${Number(amount).toLocaleString()}`;
@@ -272,11 +277,13 @@ See you soon,
           rsvp.email!,
           `${event.title} is in 3 days!`,
           body,
+          process.env.RESEND_DOMAIN_VERIFIED === 'true' ? ADMIN_CC_EMAIL : undefined,
         );
         await this.prisma.eventRsvp.update({
           where: { id: rsvp.id },
           data: { reminder3dSentAt: new Date() },
         });
+        await this.logReminderSent(event.title, rsvp.name, rsvp.email!, '3-day');
       }
     }
   }
@@ -320,7 +327,70 @@ Rera's Treat`;
           where: { id: rsvp.id },
           data: { reminderDaySentAt: new Date() },
         });
+        await this.logReminderSent(event.title, rsvp.name, rsvp.email!, 'day-of');
       }
     }
+  }
+
+  /** Every day at 08:00 server time: warn admin 5 days ahead of an employee's
+   * birthday - enough notice to sort a cake. */
+  @Cron('0 8 * * *')
+  async sendUpcomingBirthdayReminders(): Promise<void> {
+    const target = new Date();
+    target.setDate(target.getDate() + 5);
+    const targetDay = target.getDate();
+    const targetMonth = target.getMonth() + 1;
+    const currentYear = new Date().getFullYear();
+
+    const employees = await this.prisma.employee.findMany({
+      where: {
+        isActive: true,
+        birthdayDay: targetDay,
+        birthdayMonth: targetMonth,
+        NOT: { birthdayReminderSentYear: currentYear },
+      },
+    });
+
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+
+    for (const employee of employees) {
+      await this.notificationsService.notifyAdmin({
+        type: NotificationType.EMPLOYEE_BIRTHDAY_UPCOMING,
+        category: NotificationCategory.SYSTEM,
+        title: `🎂 ${employee.fullName}'s birthday is in 5 days`,
+        message: `${employee.fullName}'s birthday is on ${targetDay} ${monthNames[targetMonth - 1]} — 5 days from now. Time to sort a cake!`,
+      });
+
+      await this.prisma.employee.update({
+        where: { id: employee.id },
+        data: { birthdayReminderSentYear: currentYear },
+      });
+    }
+  }
+
+  /** Leaves a visible record in the admin Notifications panel that a
+   * reminder actually went out - otherwise the only proof is Resend's own
+   * delivery logs, which aren't visible from the dashboard. */
+  private async logReminderSent(
+    eventTitle: string,
+    guestName: string,
+    guestEmail: string,
+    kind: '3-day' | 'day-of',
+  ): Promise<void> {
+    await this.prisma.notification.create({
+      data: {
+        type: NotificationType.EVENT_RSVP_REMINDER_SENT,
+        category: NotificationCategory.SYSTEM,
+        audience: NotificationAudience.ADMIN,
+        channel: NotificationChannel.IN_APP,
+        status: NotificationDeliveryStatus.SENT,
+        title: `${kind === '3-day' ? '3-day' : 'Day-of'} reminder sent — ${eventTitle}`,
+        message: `Sent to ${guestName} (${guestEmail}) for ${eventTitle}.`,
+        recipientEmail: guestEmail,
+      },
+    });
   }
 }

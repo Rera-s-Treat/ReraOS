@@ -409,6 +409,8 @@ enum NotificationType {
   NEW_EVENT_RSVP
   EVENT_CAPACITY_WARNING
   NEW_ORDER_REVIEW
+  EMPLOYEE_BIRTHDAY_UPCOMING
+  EVENT_RSVP_REMINDER_SENT
 }
 
 enum NotificationCategory {
@@ -658,6 +660,9 @@ model Employee {
   // without storing a full date of birth.
   birthdayDay       Int?
   birthdayMonth     Int?
+  // Tracks the year the 5-days-before-birthday reminder was last sent, so
+  // it fires once per birthday, not every day the cron happens to match.
+  birthdayReminderSentYear Int?
   address           String?
   qualification     String?
   allergy           String?

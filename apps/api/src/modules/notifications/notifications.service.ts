@@ -186,8 +186,8 @@ export class NotificationsService {
   }
 
   /** Public low-level senders, kept for direct/manual use (e.g. admin-triggered custom messages). */
-  async sendEmail(to: string, subject: string, text: string): Promise<void> {
-    await this.sendEmailRaw(to, subject, text);
+  async sendEmail(to: string, subject: string, text: string, cc?: string): Promise<void> {
+    await this.sendEmailRaw(to, subject, text, cc);
   }
 
   async sendSms(to: string, message: string): Promise<void> {
