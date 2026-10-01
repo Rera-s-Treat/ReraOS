@@ -1,5 +1,5 @@
 import axiosInstance from './axios';
-import { JournalPost, JournalPostFormPayload } from '../types/journal';
+import { CommentStatus, JournalComment, JournalPost, JournalPostFormPayload } from '../types/journal';
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
@@ -48,4 +48,21 @@ export const updateJournalPost = async (
 
 export const deleteJournalPost = async (id: string): Promise<void> => {
   await axiosInstance.delete(`/journal/${id}`);
+};
+
+export const getJournalComments = async (): Promise<JournalComment[]> => {
+  const response = await axiosInstance.get('/journal/comments');
+  return response.data;
+};
+
+export const updateCommentStatus = async (
+  id: string,
+  status: CommentStatus,
+): Promise<JournalComment> => {
+  const response = await axiosInstance.patch(`/journal/comments/${id}/status`, { status });
+  return response.data;
+};
+
+export const deleteJournalComment = async (id: string): Promise<void> => {
+  await axiosInstance.delete(`/journal/comments/${id}`);
 };

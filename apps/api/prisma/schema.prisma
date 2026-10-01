@@ -411,6 +411,7 @@ enum NotificationType {
   NEW_ORDER_REVIEW
   EMPLOYEE_BIRTHDAY_UPCOMING
   EVENT_RSVP_REMINDER_SENT
+  NEW_JOURNAL_COMMENT
 }
 
 enum NotificationCategory {
@@ -636,11 +637,55 @@ model JournalPost {
   status      JournalStatus @default(DRAFT)
   publishedAt DateTime?
 
+  comments    JournalComment[]
+  likes       JournalLike[]
+
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
   @@index([slug])
   @@index([status])
+}
+
+enum CommentStatus {
+  PENDING
+  PUBLISHED
+  REJECTED
+}
+
+model JournalComment {
+  id         String        @id @default(uuid())
+
+  postId     String
+  post       JournalPost   @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  authorName String
+  body       String
+
+  status     CommentStatus @default(PENDING)
+
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@index([postId])
+  @@index([status])
+}
+
+model JournalLike {
+  id          String   @id @default(uuid())
+
+  postId      String
+  post        JournalPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  // Client-generated id stored in the visitor's browser (localStorage) -
+  // no accounts, just enough to stop a single browser inflating the count
+  // and to let the "like" button toggle correctly on repeat visits.
+  anonymousId String
+
+  createdAt   DateTime @default(now())
+
+  @@unique([postId, anonymousId])
+  @@index([postId])
 }
 
 // ---------------------------------------------------------------------

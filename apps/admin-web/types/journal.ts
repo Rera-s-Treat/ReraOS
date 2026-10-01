@@ -22,3 +22,14 @@ export interface JournalPostFormPayload {
   coverImage?: File;
   removeCoverImage?: boolean;
 }
+
+export type CommentStatus = 'PENDING' | 'PUBLISHED' | 'REJECTED';
+
+export interface JournalComment {
+  id: string;
+  authorName: string;
+  body: string;
+  status: CommentStatus;
+  createdAt: string;
+  post: { title: string; slug: string };
+}

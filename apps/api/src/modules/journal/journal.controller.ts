@@ -19,6 +19,7 @@ import { Roles } from '../../auth/roles.decorator';
 import { RolesGuard } from '../../auth/roles.guard';
 import { uploadToR2 } from '../../common/r2-storage';
 import { CreateJournalPostDto } from './dto/create-journal-post.dto';
+import { UpdateCommentStatusDto } from './dto/update-comment-status.dto';
 import { UpdateJournalPostDto } from './dto/update-journal-post.dto';
 import { JournalService } from './journal.service';
 
@@ -41,6 +42,30 @@ export class JournalController {
   @ApiOperation({ summary: 'List all journal posts (any status)' })
   async getPosts() {
     return this.journalService.getPosts();
+  }
+
+  @Get('comments')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'STAFF')
+  @ApiOperation({ summary: 'List all journal comments, any status, for moderation' })
+  async getComments() {
+    return this.journalService.getComments();
+  }
+
+  @Patch('comments/:commentId/status')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'STAFF')
+  @ApiOperation({ summary: 'Publish or reject a comment' })
+  async updateCommentStatus(
+    @Param('commentId') commentId: string,
+    @Body() body: UpdateCommentStatusDto,
+  ) {
+    return this.journalService.updateCommentStatus(commentId, body);
+  }
+
+  @Delete('comments/:commentId')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @ApiOperation({ summary: 'Permanently delete a comment' })
+  async deleteComment(@Param('commentId') commentId: string) {
+    return this.journalService.deleteComment(commentId);
   }
 
   @Get(':id')

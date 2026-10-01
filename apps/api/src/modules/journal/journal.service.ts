@@ -1,13 +1,25 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { JournalStatus } from '@prisma/client';
+import {
+  CommentStatus,
+  JournalStatus,
+  NotificationCategory,
+  NotificationType,
+} from '@prisma/client';
 
 import { PrismaService } from '../../common/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { CreateCommentDto } from './dto/create-comment.dto';
 import { CreateJournalPostDto } from './dto/create-journal-post.dto';
+import { ToggleLikeDto } from './dto/toggle-like.dto';
+import { UpdateCommentStatusDto } from './dto/update-comment-status.dto';
 import { UpdateJournalPostDto } from './dto/update-journal-post.dto';
 
 @Injectable()
 export class JournalService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async getPosts() {
     return this.prisma.journalPost.findMany({ orderBy: { createdAt: 'desc' } });
@@ -96,7 +108,17 @@ export class JournalService {
   }
 
   async getPublicPostBySlug(slug: string) {
-    const post = await this.prisma.journalPost.findUnique({ where: { slug } });
+    const post = await this.prisma.journalPost.findUnique({
+      where: { slug },
+      include: {
+        _count: { select: { likes: true } },
+        comments: {
+          where: { status: CommentStatus.PUBLISHED },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, authorName: true, body: true, createdAt: true },
+        },
+      },
+    });
 
     if (!post || post.status !== JournalStatus.PUBLISHED) {
       throw new NotFoundException('Journal post not found');
@@ -109,6 +131,90 @@ export class JournalService {
       body: post.body,
       coverImage: post.coverImage,
       publishedAt: post.publishedAt,
+      likeCount: post._count.likes,
+      comments: post.comments,
     };
+  }
+
+  // ---------------------------------------------------------------------
+  // Likes (public, no auth - deduped per browser via a client-generated id)
+  // ---------------------------------------------------------------------
+
+  async toggleLike(slug: string, dto: ToggleLikeDto) {
+    const post = await this.prisma.journalPost.findUnique({ where: { slug } });
+    if (!post || post.status !== JournalStatus.PUBLISHED) {
+      throw new NotFoundException('Journal post not found');
+    }
+
+    const existing = await this.prisma.journalLike.findUnique({
+      where: { postId_anonymousId: { postId: post.id, anonymousId: dto.anonymousId } },
+    });
+
+    if (existing) {
+      await this.prisma.journalLike.delete({ where: { id: existing.id } });
+    } else {
+      await this.prisma.journalLike.create({
+        data: { postId: post.id, anonymousId: dto.anonymousId },
+      });
+    }
+
+    const likeCount = await this.prisma.journalLike.count({ where: { postId: post.id } });
+    return { liked: !existing, likeCount };
+  }
+
+  // ---------------------------------------------------------------------
+  // Comments
+  // ---------------------------------------------------------------------
+
+  async submitComment(slug: string, dto: CreateCommentDto) {
+    const post = await this.prisma.journalPost.findUnique({ where: { slug } });
+    if (!post || post.status !== JournalStatus.PUBLISHED) {
+      throw new NotFoundException('Journal post not found');
+    }
+
+    const comment = await this.prisma.journalComment.create({
+      data: {
+        postId: post.id,
+        authorName: dto.authorName,
+        body: dto.body,
+      },
+    });
+
+    await this.notificationsService.notifyAdmin({
+      type: NotificationType.NEW_JOURNAL_COMMENT,
+      category: NotificationCategory.SYSTEM,
+      title: `New comment — ${post.title}`,
+      message: `${dto.authorName} commented on "${post.title}":\n\n"${dto.body}"\n\nReview it in the dashboard to decide whether to publish it.`,
+    });
+
+    return { success: true };
+  }
+
+  async getComments() {
+    return this.prisma.journalComment.findMany({
+      include: { post: { select: { title: true, slug: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async updateCommentStatus(id: string, dto: UpdateCommentStatusDto) {
+    const comment = await this.prisma.journalComment.findUnique({ where: { id } });
+    if (!comment) {
+      throw new NotFoundException('Comment not found');
+    }
+
+    return this.prisma.journalComment.update({
+      where: { id },
+      data: { status: dto.status },
+    });
+  }
+
+  async deleteComment(id: string) {
+    const comment = await this.prisma.journalComment.findUnique({ where: { id } });
+    if (!comment) {
+      throw new NotFoundException('Comment not found');
+    }
+    await this.prisma.journalComment.delete({ where: { id } });
+    return { success: true };
   }
 }

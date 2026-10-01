@@ -105,9 +105,14 @@ export default function JournalPage() {
             Write posts for the website&apos;s journal — only published posts are publicly visible.
           </p>
         </div>
-        <button style={createBtnStyle} onClick={() => setShowCreate((v) => !v)}>
-          {showCreate ? 'Cancel' : '+ New Post'}
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <Link href="/dashboard/journal/comments" style={moderateBtnStyle}>
+            Moderate Comments
+          </Link>
+          <button style={createBtnStyle} onClick={() => setShowCreate((v) => !v)}>
+            {showCreate ? 'Cancel' : '+ New Post'}
+          </button>
+        </div>
       </div>
 
       {showCreate && (
@@ -244,6 +249,21 @@ const headerStyle: React.CSSProperties = {
 
 const titleStyle: React.CSSProperties = { margin: 0, fontSize: 28 };
 const subtitleStyle: React.CSSProperties = { margin: '6px 0 0', color: '#666', maxWidth: 560 };
+
+const moderateBtnStyle: React.CSSProperties = {
+  padding: '12px 20px',
+  fontSize: 14,
+  fontWeight: 600,
+  background: '#fff',
+  color: '#1A1A1A',
+  border: '1px solid #d1d5db',
+  borderRadius: 8,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+  textDecoration: 'none',
+  display: 'inline-flex',
+  alignItems: 'center',
+};
 
 const createBtnStyle: React.CSSProperties = {
   padding: '12px 20px',
