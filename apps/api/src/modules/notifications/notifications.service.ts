@@ -364,7 +364,13 @@ ${itemsSummary}
 
 Total: ${total}
 
-We're just confirming your payment. Once that's sorted, we'll get to the important part — making your food.
+To get things moving, please pay to:
+
+**Bank:** ${PAYMENT_ACCOUNT.bankName}
+**Account Name:** ${PAYMENT_ACCOUNT.accountName}
+**Account Number:** ${PAYMENT_ACCOUNT.accountNumber}
+
+Once that's sorted, we'll get to the important part — making your food.
 
 We'll keep you posted.
 
@@ -372,9 +378,9 @@ Rera's Treat
 Come hungry. We have plenty.`,
       smsBody: `Hi ${order.customerName} 👋🏽
 
-We got your order #${order.orderNumber}.
+We got your order #${order.orderNumber}. Total: ${total}.
 
-Your total is ${total} and we're confirming your payment now.
+Pay to ${PAYMENT_ACCOUNT.accountName}, ${PAYMENT_ACCOUNT.accountNumber} (${PAYMENT_ACCOUNT.bankName}).
 
 Once that's done, we'll get cooking.
 
