@@ -32,6 +32,36 @@ function formatNaira(amount: number): string {
   return `₦${Number(amount).toLocaleString()}`;
 }
 
+function escapeCsvValue(value: string | number): string {
+  const str = String(value);
+  return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+}
+
+function downloadCsv(filename: string, headers: string[], rows: (string | number)[][]) {
+  const allRows = headers.length > 0 ? [headers, ...rows] : rows;
+  const csv = allRows.map((row) => row.map(escapeCsvValue).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function DownloadButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+    >
+      ↓ Download CSV
+    </button>
+  );
+}
+
 function formatMonthLabel(monthKey: string): string {
   const [year, month] = monthKey.split('-').map(Number);
   return new Date(year, month - 1, 1).toLocaleDateString('en-NG', {
@@ -117,12 +147,47 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-8">
-      <section>
-        <h1 className="text-3xl font-bold text-gray-900">All-Time Analytics</h1>
-        <p className="mt-2 text-sm text-gray-600">
-          Full lifetime performance and month-on-month trends across orders, payments,
-          and customers.
-        </p>
+      <section className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">All-Time Analytics</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Full lifetime performance and month-on-month trends across orders, payments,
+            and customers.
+          </p>
+        </div>
+        {monthly.length > 0 && (
+          <DownloadButton
+            onClick={() =>
+              downloadCsv(
+                `rera-analytics-full-report-${new Date().toISOString().slice(0, 10)}.csv`,
+                [
+                  'Month',
+                  'Orders',
+                  'Revenue',
+                  'Avg Order Value',
+                  'New Customers',
+                  'Returning Customers',
+                  'Payments Confirmed',
+                  'Payments Pending',
+                  'Payments Failed',
+                  'Payments Refunded',
+                ],
+                monthly.map((entry) => [
+                  formatMonthLabel(entry.month),
+                  entry.orders,
+                  entry.revenue,
+                  entry.averageOrderValue,
+                  entry.newCustomers,
+                  entry.returningCustomers,
+                  entry.paymentBreakdown.confirmed,
+                  entry.paymentBreakdown.pendingConfirmation,
+                  entry.paymentBreakdown.failed,
+                  entry.paymentBreakdown.refunded,
+                ]),
+              )
+            }
+          />
+        )}
       </section>
 
       {error && (
@@ -158,9 +223,26 @@ export default function AnalyticsPage() {
 
       {/* Orders & revenue trend, all months */}
       <section className="rounded-lg bg-white p-6 shadow-sm">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Orders &amp; Revenue — Month on Month
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Orders &amp; Revenue — Month on Month
+          </h3>
+          {chartData.length > 0 && (
+            <DownloadButton
+              onClick={() =>
+                downloadCsv(
+                  'rera-orders-revenue.csv',
+                  ['Month', 'Orders', 'Revenue'],
+                  chartData.map((entry) => [
+                    formatMonthLabel(entry.month),
+                    entry.orders,
+                    entry.revenue,
+                  ]),
+                )
+              }
+            />
+          )}
+        </div>
 
         <div className="mt-6 h-80">
           {loading ? (
@@ -212,9 +294,26 @@ export default function AnalyticsPage() {
       <section className="grid gap-6 lg:grid-cols-2">
         {/* Customer acquisition */}
         <div className="rounded-lg bg-white p-6 shadow-sm">
-          <h3 className="text-lg font-semibold text-gray-900">
-            New vs Returning Customers
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">
+              New vs Returning Customers
+            </h3>
+            {customerChartData.length > 0 && (
+              <DownloadButton
+                onClick={() =>
+                  downloadCsv(
+                    'rera-customer-acquisition.csv',
+                    ['Month', 'New Customers', 'Returning Customers'],
+                    customerChartData.map((entry) => [
+                      formatMonthLabel(entry.month),
+                      entry['New Customers'],
+                      entry['Returning Customers'],
+                    ]),
+                  )
+                }
+              />
+            )}
+          </div>
 
           <div className="mt-6 h-72">
             {loading ? (
@@ -253,9 +352,28 @@ export default function AnalyticsPage() {
 
         {/* Payment status breakdown */}
         <div className="rounded-lg bg-white p-6 shadow-sm">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Payment Status Breakdown
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Payment Status Breakdown
+            </h3>
+            {paymentChartData.length > 0 && (
+              <DownloadButton
+                onClick={() =>
+                  downloadCsv(
+                    'rera-payment-breakdown.csv',
+                    ['Month', 'Confirmed', 'Pending', 'Failed', 'Refunded'],
+                    paymentChartData.map((entry) => [
+                      formatMonthLabel(entry.month),
+                      entry.Confirmed,
+                      entry.Pending,
+                      entry.Failed,
+                      entry.Refunded,
+                    ]),
+                  )
+                }
+              />
+            )}
+          </div>
 
           <div className="mt-6 h-72">
             {loading ? (
@@ -292,25 +410,58 @@ export default function AnalyticsPage() {
 
       {/* Month drill-down */}
       <section className="rounded-lg bg-white p-6 shadow-sm">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <h3 className="text-lg font-semibold text-gray-900">Month Drill-Down</h3>
 
-          {monthly.length > 0 && (
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-(--color-brand-orange)"
-            >
-              {monthly
-                .slice()
-                .reverse()
-                .map((entry) => (
-                  <option key={entry.month} value={entry.month}>
-                    {formatMonthLabel(entry.month)}
-                  </option>
-                ))}
-            </select>
-          )}
+          <div className="flex items-center gap-2">
+            {selectedMonthData && (
+              <DownloadButton
+                onClick={() => {
+                  const rows: (string | number)[][] = [
+                    ['Top Products', '', ''],
+                    ['Rank', 'Product', 'Quantity Sold', 'Revenue'],
+                    ...selectedMonthData.topProducts.map((p, i) => [
+                      i + 1,
+                      p.name,
+                      p.quantitySold,
+                      p.revenue,
+                    ]),
+                    ['', '', ''],
+                    ['Top Customers', '', ''],
+                    ['Rank', 'Customer', 'Total Spend', 'Orders'],
+                    ...selectedMonthData.topCustomers.map((c, i) => [
+                      i + 1,
+                      c.name,
+                      c.totalSpend,
+                      c.orders,
+                    ]),
+                  ];
+                  downloadCsv(
+                    `rera-${selectedMonthData.month}-drilldown.csv`,
+                    [],
+                    rows,
+                  );
+                }}
+              />
+            )}
+
+            {monthly.length > 0 && (
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-(--color-brand-orange)"
+              >
+                {monthly
+                  .slice()
+                  .reverse()
+                  .map((entry) => (
+                    <option key={entry.month} value={entry.month}>
+                      {formatMonthLabel(entry.month)}
+                    </option>
+                  ))}
+              </select>
+            )}
+          </div>
         </div>
 
         {selectedMonthData && (
