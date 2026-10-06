@@ -2,8 +2,10 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ProductStatus } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
+  IsArray,
   IsBoolean,
   IsEnum,
+  IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -29,6 +31,23 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({ example: 'Serves 1-2' })
+  @IsOptional()
+  @IsString()
+  servings?: string;
+
+  @ApiPropertyOptional({
+    example: ['2pcs chicken', 'Coleslaw', 'Fries'],
+    description: 'What comes with this item, shown as a bullet list',
+  })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? [value] : value,
+  )
+  @IsArray({ message: 'Content must be a list of items, one per line' })
+  @IsString({ each: true })
+  contents?: string[];
 
   @ApiProperty({ example: 3500, description: 'Selling price' })
   @Type(() => Number)
@@ -56,6 +75,24 @@ export class CreateProductDto {
   )
   @IsBoolean()
   isAvailable?: boolean;
+
+  @ApiPropertyOptional({
+    example: false,
+    description: 'Highlight this item on the menu/homepage',
+    default: false,
+  })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value === 'true' : value,
+  )
+  @IsBoolean()
+  featured?: boolean;
+
+  @ApiPropertyOptional({ example: 0, description: 'Lower numbers show first within a category' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  sortOrder?: number;
 
   @ApiPropertyOptional({
     description: 'ID of a category from GET /categories',

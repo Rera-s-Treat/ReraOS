@@ -1,0 +1,111 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { memoryStorage } from 'multer';
+
+import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { Roles } from '../../auth/roles.decorator';
+import { RolesGuard } from '../../auth/roles.guard';
+import { uploadToR2 } from '../../common/r2-storage';
+import { CreateJournalPostDto } from './dto/create-journal-post.dto';
+import { UpdateCommentStatusDto } from './dto/update-comment-status.dto';
+import { UpdateJournalPostDto } from './dto/update-journal-post.dto';
+import { JournalService } from './journal.service';
+
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
+const coverImageInterceptor = FileInterceptor('coverImage', {
+  storage: memoryStorage(),
+  limits: { fileSize: MAX_IMAGE_SIZE_BYTES },
+});
+
+@ApiTags('Journal')
+@ApiBearerAuth('bearer')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('journal')
+export class JournalController {
+  constructor(private readonly journalService: JournalService) {}
+
+  @Get()
+  @Roles('SUPER_ADMIN', 'ADMIN', 'STAFF')
+  @ApiOperation({ summary: 'List all journal posts (any status)' })
+  async getPosts() {
+    return this.journalService.getPosts();
+  }
+
+  @Get('comments')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'STAFF')
+  @ApiOperation({ summary: 'List all journal comments, any status, for moderation' })
+  async getComments() {
+    return this.journalService.getComments();
+  }
+
+  @Patch('comments/:commentId/status')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'STAFF')
+  @ApiOperation({ summary: 'Publish or reject a comment' })
+  async updateCommentStatus(
+    @Param('commentId') commentId: string,
+    @Body() body: UpdateCommentStatusDto,
+  ) {
+    return this.journalService.updateCommentStatus(commentId, body);
+  }
+
+  @Delete('comments/:commentId')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @ApiOperation({ summary: 'Permanently delete a comment' })
+  async deleteComment(@Param('commentId') commentId: string) {
+    return this.journalService.deleteComment(commentId);
+  }
+
+  @Get(':id')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'STAFF')
+  @ApiOperation({ summary: 'Get a journal post by ID' })
+  async getPostById(@Param('id') id: string) {
+    return this.journalService.getPostById(id);
+  }
+
+  @Post()
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Create a new journal post, optionally with a cover photo' })
+  @UseInterceptors(coverImageInterceptor)
+  async createPost(
+    @Body() body: CreateJournalPostDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    const coverImage = file ? await uploadToR2('journal', file) : undefined;
+    return this.journalService.createPost(body, coverImage);
+  }
+
+  @Patch(':id')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Update a journal post, optionally replacing the cover photo' })
+  @UseInterceptors(coverImageInterceptor)
+  async updatePost(
+    @Param('id') id: string,
+    @Body() body: UpdateJournalPostDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    const coverImage = file ? await uploadToR2('journal', file) : undefined;
+    return this.journalService.updatePost(id, body, coverImage);
+  }
+
+  @Delete(':id')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @ApiOperation({ summary: 'Delete a journal post' })
+  async deletePost(@Param('id') id: string) {
+    return this.journalService.deletePost(id);
+  }
+}

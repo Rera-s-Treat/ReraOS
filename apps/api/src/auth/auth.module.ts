@@ -7,6 +7,7 @@ import { JwtStrategy } from './jwt.strategy';
 import { PrismaService } from '../common/prisma.service';
 import { RolesGuard } from './roles.guard';
 import { RolesModule } from '../modules/roles/roles.module';
+import { NotificationsModule } from '../modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { RolesModule } from '../modules/roles/roles.module';
       signOptions: { expiresIn: '1d' },
     }),
     RolesModule,
+    NotificationsModule,
   ],
   controllers: [AuthController],
   providers: [

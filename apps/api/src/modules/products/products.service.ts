@@ -55,15 +55,19 @@ export class ProductsService {
       name: createProductDto.name,
       sku: createProductDto.sku,
       description: createProductDto.description,
+      servings: createProductDto.servings,
+      contents: createProductDto.contents,
       price: createProductDto.price,
       status: createProductDto.status,
       isAvailable: createProductDto.isAvailable,
+      featured: createProductDto.featured,
+      sortOrder: createProductDto.sortOrder,
       categoryId: createProductDto.categoryId,
       images,
     });
   }
 
-  async updateProduct(id: string, updateProductDto: UpdateProductDto) {
+  async updateProduct(id: string, updateProductDto: UpdateProductDto, images?: string[]) {
     const existingProduct = await this.productsRepository.findById(id);
 
     if (!existingProduct) {
@@ -89,14 +93,23 @@ export class ProductsService {
       }
     }
 
+    // New images replace the whole set; removeImages explicitly clears them
+    // when the admin isn't uploading a replacement; otherwise leave as-is.
+    const nextImages = images ?? (updateProductDto.removeImages ? [] : undefined);
+
     return this.productsRepository.update(id, {
       name: updateProductDto.name,
       sku: updateProductDto.sku,
       description: updateProductDto.description,
+      servings: updateProductDto.servings,
+      contents: updateProductDto.contents,
       price: updateProductDto.price,
       status: updateProductDto.status,
       isAvailable: updateProductDto.isAvailable,
+      featured: updateProductDto.featured,
+      sortOrder: updateProductDto.sortOrder,
       categoryId: updateProductDto.categoryId,
+      images: nextImages,
     });
   }
 }

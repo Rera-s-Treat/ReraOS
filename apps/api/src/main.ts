@@ -9,8 +9,8 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  const uploadsDir = join(process.cwd(), 'uploads', 'products');
-  fs.mkdirSync(uploadsDir, { recursive: true });
+  fs.mkdirSync(join(process.cwd(), 'uploads', 'products'), { recursive: true });
+  fs.mkdirSync(join(process.cwd(), 'uploads', 'journal'), { recursive: true });
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
 
   app.useGlobalPipes(
@@ -45,7 +45,10 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   const port = Number(process.env.PORT ?? 3001);
-  await app.listen(port);
+  // Bind explicitly to all interfaces - without a host, this has resolved
+  // to the IPv6 loopback address on Render, which is unreachable from
+  // outside the container and fails the platform's port scan.
+  await app.listen(port, '0.0.0.0');
   console.log(`Application is running on: ${await app.getUrl()}`);
 }
 

@@ -4,6 +4,7 @@ import {
   KitchenStatus,
   NotificationCategory,
   NotificationType,
+  OrderChannel,
   PaymentStatus,
 } from '@prisma/client';
 
@@ -12,10 +13,11 @@ import { PrismaService } from '../../common/prisma.service';
 import { VIP_ORDER_THRESHOLD } from '../customers/customers.constants';
 import {
   NotificationsService,
-  WhatsappMessageType,
+  OrderNotificationType,
 } from '../notifications/notifications.service';
 import { ProductsRepository } from '../products/products.repository';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { RecordPaymentDto } from './dto/record-payment.dto';
 import { UpdateFulfillmentStatusDto } from './dto/update-fulfillment-status.dto';
 import { UpdateKitchenStatusDto } from './dto/update-kitchen-status.dto';
 import { UpdatePaymentStatusDto } from './dto/update-payment-status.dto';
@@ -153,41 +155,51 @@ export class OrdersService {
   }
 
   async createOrder(createOrderDto: CreateOrderDto, createdByUserId?: string) {
-    const productIds = createOrderDto.items.map((item) => item.productId);
+    const productIds = createOrderDto.items
+      .map((item) => item.productId)
+      .filter((id): id is string => !!id);
 
     const products = await this.productsRepository.findManyByIds(productIds);
-
     const productMap = new Map(products.map((product) => [product.id, product]));
 
     const missingIds = productIds.filter((id) => !productMap.has(id));
-
     if (missingIds.length > 0) {
       throw new BadRequestException(
         `Product(s) not found: ${missingIds.join(', ')}`,
       );
     }
 
-    const unavailableProducts = createOrderDto.items
-      .map((item) => productMap.get(item.productId)!)
-      .filter((product) => product.status !== 'ACTIVE' || !product.isAvailable);
+    // Catering orders are hand-quoted by an admin and may include items that
+    // aren't on the day-to-day retail menu (or are marked unavailable there)
+    // — availability only gates the customer-facing ordering flows.
+    if (createOrderDto.channel !== OrderChannel.CATERING) {
+      const unavailableProducts = createOrderDto.items
+        .filter((item) => item.productId)
+        .map((item) => productMap.get(item.productId!)!)
+        .filter((product) => product.status !== 'ACTIVE' || !product.isAvailable);
 
-    if (unavailableProducts.length > 0) {
-      throw new BadRequestException(
-        `Product(s) not available: ${unavailableProducts
-          .map((product) => product.name)
-          .join(', ')}`,
-      );
+      if (unavailableProducts.length > 0) {
+        throw new BadRequestException(
+          `Product(s) not available: ${unavailableProducts
+            .map((product) => product.name)
+            .join(', ')}`,
+        );
+      }
     }
 
     let subtotal = 0;
     const items = createOrderDto.items.map((item) => {
-      const product = productMap.get(item.productId)!;
-      const unitPrice = Number(product.price);
+      const product = item.productId ? productMap.get(item.productId) : undefined;
+      // A custom (non-catalog) line item requires its own price; a catalog
+      // item uses the catalog price unless the admin overrides it (e.g. a
+      // catering quote).
+      const unitPrice = item.unitPrice ?? Number(product?.price ?? 0);
       const lineTotal = unitPrice * item.quantity;
       subtotal += lineTotal;
 
       return {
         productId: item.productId,
+        customDescription: item.customDescription,
         quantity: item.quantity,
         unitPrice,
         lineTotal,
@@ -395,9 +407,9 @@ export class OrdersService {
     return order;
   }
 
-  async sendWhatsAppNotification(
+  async sendOrderNotification(
     id: string,
-    type: WhatsappMessageType,
+    type: OrderNotificationType,
     customMessage?: string,
   ) {
     const order = await this.getOrderById(id);
@@ -437,8 +449,55 @@ export class OrdersService {
       totalAmount: order.totalAmount,
       createdAt: order.createdAt,
       items: order.items.map((item) => ({
-        name: item.product.name,
+        name: item.product?.name ?? item.customDescription ?? 'Item',
         quantity: item.quantity,
+      })),
+    };
+  }
+
+  async recordPayment(id: string, dto: RecordPaymentDto) {
+    await this.getOrderById(id);
+    const updated = await this.ordersRepository.recordPayment(id, dto.amount, dto.note);
+    return this.withUnifiedStatus(updated!);
+  }
+
+  /**
+   * Public, shareable invoice for an order - keyed by the order's own
+   * unguessable id, no auth. Deliberately omits phone/email and any
+   * internal admin notes attached to payments.
+   */
+  async getInvoice(id: string) {
+    const order = await this.ordersRepository.findById(id);
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    const amountPaid = order.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const balance = Math.max(Number(order.totalAmount) - amountPaid, 0);
+
+    return {
+      orderNumber: order.orderNumber,
+      createdAt: order.createdAt,
+      customerName: order.customerName,
+      channel: order.channel,
+      orderType: order.orderType,
+      tableNumber: order.tableNumber,
+      deliveryAddress: order.deliveryAddress,
+      items: order.items.map((item) => ({
+        name: item.product?.name ?? item.customDescription ?? 'Item',
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        lineTotal: item.lineTotal,
+      })),
+      subtotal: order.subtotal,
+      discountAmount: order.discountAmount,
+      totalAmount: order.totalAmount,
+      amountPaid,
+      balance,
+      isSettled: balance <= 0,
+      payments: order.payments.map((p) => ({
+        amount: p.amount,
+        recordedAt: p.recordedAt,
       })),
     };
   }

@@ -11,6 +11,11 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { CommunityModule } from './modules/community/community.module';
+import { EventsModule } from './modules/events/events.module';
+import { JournalModule } from './modules/journal/journal.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
+import { StaffModule } from './modules/staff/staff.module';
+import { ProductionModule } from './modules/production/production.module';
 
 @Module({
   imports: [
@@ -26,6 +31,11 @@ import { CommunityModule } from './modules/community/community.module';
     CustomersModule,
     CategoriesModule,
     CommunityModule,
+    EventsModule,
+    JournalModule,
+    ReviewsModule,
+    StaffModule,
+    ProductionModule,
   ],
 })
 export class AppModule {}

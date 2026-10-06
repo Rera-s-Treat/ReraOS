@@ -232,7 +232,7 @@ export default function OrdersPage() {
                   <td style={{ ...tdStyle, maxWidth: 220 }}>
                     <span style={itemsSummaryStyle}>
                       {order.items
-                        .map((item) => `${item.quantity}× ${item.product.name}`)
+                        .map((item) => `${item.quantity}× ${item.product?.name ?? item.customDescription ?? 'Item'}`)
                         .join(', ')}
                     </span>
                   </td>

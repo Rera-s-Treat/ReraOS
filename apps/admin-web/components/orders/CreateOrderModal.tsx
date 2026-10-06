@@ -13,8 +13,11 @@ interface CreateOrderModalProps {
 }
 
 interface ItemRow {
+  mode: 'product' | 'custom';
   productId: string;
+  customDescription: string;
   quantity: string;
+  unitPrice: string;
 }
 
 interface FormState {
@@ -41,9 +44,15 @@ const initialForm: FormState = {
   discountAmount: '0',
 };
 
-const emptyRow: ItemRow = { productId: '', quantity: '1' };
+const emptyRow: ItemRow = {
+  mode: 'product',
+  productId: '',
+  customDescription: '',
+  quantity: '1',
+  unitPrice: '',
+};
 
-const channelOptions: OrderChannel[] = ['WHATSAPP', 'MANUAL', 'WALK_IN'];
+const channelOptions: OrderChannel[] = ['WHATSAPP', 'MANUAL', 'WALK_IN', 'CATERING'];
 const orderTypeOptions: OrderType[] = ['PICKUP', 'DELIVERY', 'DINE_IN'];
 
 export const CreateOrderModal: React.FC<CreateOrderModalProps> = ({
@@ -107,10 +116,21 @@ export const CreateOrderModal: React.FC<CreateOrderModalProps> = ({
     onClose();
   };
 
+  const handleProductSelect = (index: number, productId: string) => {
+    const product = products.find((p) => p.id === productId);
+    setRows((prev) =>
+      prev.map((row, i) =>
+        i === index
+          ? { ...row, productId, unitPrice: product ? String(product.price) : row.unitPrice }
+          : row,
+      ),
+    );
+  };
+
   const estimatedSubtotal = rows.reduce((sum, row) => {
-    const product = products.find((p) => p.id === row.productId);
     const quantity = Number(row.quantity) || 0;
-    return sum + (product ? Number(product.price) * quantity : 0);
+    const unitPrice = Number(row.unitPrice) || 0;
+    return sum + unitPrice * quantity;
   }, 0);
 
   const validate = () => {
@@ -125,10 +145,21 @@ export const CreateOrderModal: React.FC<CreateOrderModalProps> = ({
     if (rows.length === 0) return 'At least one item is required';
 
     for (const row of rows) {
-      if (!row.productId) return 'Select an item for every row';
+      if (row.mode === 'product' && !row.productId) {
+        return 'Select an item for every catalog row';
+      }
+      if (row.mode === 'custom' && !row.customDescription.trim()) {
+        return 'Describe every custom line item';
+      }
+      if (row.mode === 'custom' && !row.unitPrice.trim()) {
+        return 'A custom line item needs a price';
+      }
       const quantity = Number(row.quantity);
       if (!Number.isInteger(quantity) || quantity < 1) {
         return 'Quantity must be a whole number of at least 1';
+      }
+      if (row.unitPrice.trim() && Number(row.unitPrice) < 0) {
+        return 'Price cannot be negative';
       }
     }
 
@@ -165,8 +196,10 @@ export const CreateOrderModal: React.FC<CreateOrderModalProps> = ({
           ? Number(form.discountAmount)
           : undefined,
         items: rows.map((row) => ({
-          productId: row.productId,
+          productId: row.mode === 'product' ? row.productId : undefined,
+          customDescription: row.mode === 'custom' ? row.customDescription.trim() : undefined,
           quantity: Number(row.quantity),
+          unitPrice: row.unitPrice.trim() ? Number(row.unitPrice) : undefined,
         })),
       });
 
@@ -303,41 +336,84 @@ export const CreateOrderModal: React.FC<CreateOrderModalProps> = ({
             <label style={{ display: 'block', marginBottom: 8 }}>Items</label>
 
             {rows.map((row, index) => (
-              <div key={index} style={itemRowStyle}>
-                <select
-                  value={row.productId}
-                  onChange={(e) =>
-                    handleRowChange(index, 'productId', e.target.value)
-                  }
-                  disabled={isLoadingProducts}
-                  style={{ ...inputStyle, flex: 3 }}
-                >
-                  <option value="">Select item</option>
-                  {products.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.name}
-                      {product.sku ? ` (${product.sku})` : ''}
-                    </option>
-                  ))}
-                </select>
+              <div key={index} style={itemRowGroupStyle}>
+                <div style={itemRowStyle}>
+                  {row.mode === 'product' ? (
+                    <select
+                      value={row.productId}
+                      onChange={(e) => handleProductSelect(index, e.target.value)}
+                      disabled={isLoadingProducts}
+                      style={{ ...inputStyle, flex: 3 }}
+                    >
+                      <option value="">Select item</option>
+                      {products.map((product) => (
+                        <option key={product.id} value={product.id}>
+                          {product.name}
+                          {product.sku ? ` (${product.sku})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      value={row.customDescription}
+                      onChange={(e) =>
+                        handleRowChange(index, 'customDescription', e.target.value)
+                      }
+                      placeholder="e.g. Setup & service fee"
+                      style={{ ...inputStyle, flex: 3 }}
+                    />
+                  )}
 
-                <input
-                  type="number"
-                  min="1"
-                  value={row.quantity}
-                  onChange={(e) =>
-                    handleRowChange(index, 'quantity', e.target.value)
-                  }
-                  style={{ ...inputStyle, flex: 1 }}
-                />
+                  <input
+                    type="number"
+                    min="1"
+                    value={row.quantity}
+                    onChange={(e) =>
+                      handleRowChange(index, 'quantity', e.target.value)
+                    }
+                    style={{ ...inputStyle, flex: 1 }}
+                  />
+
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={row.unitPrice}
+                    onChange={(e) =>
+                      handleRowChange(index, 'unitPrice', e.target.value)
+                    }
+                    placeholder="Price"
+                    title={row.mode === 'product' ? 'Overrides the catalog price for this order' : 'Price'}
+                    style={{ ...inputStyle, flex: 1 }}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => removeRow(index)}
+                    disabled={rows.length === 1}
+                    style={removeRowBtnStyle}
+                  >
+                    Remove
+                  </button>
+                </div>
 
                 <button
                   type="button"
-                  onClick={() => removeRow(index)}
-                  disabled={rows.length === 1}
-                  style={removeRowBtnStyle}
+                  onClick={() =>
+                    setRows((prev) =>
+                      prev.map((r, i) =>
+                        i === index
+                          ? {
+                              ...emptyRow,
+                              mode: r.mode === 'product' ? 'custom' : 'product',
+                            }
+                          : r,
+                      ),
+                    )
+                  }
+                  style={modeToggleStyle}
                 >
-                  Remove
+                  {row.mode === 'product' ? '+ Use a custom line item instead' : '+ Use a catalog item instead'}
                 </button>
               </div>
             ))}
@@ -454,11 +530,25 @@ const inputStyle: React.CSSProperties = {
   fontFamily: 'inherit',
 };
 
+const itemRowGroupStyle: React.CSSProperties = {
+  marginBottom: 8,
+};
+
 const itemRowStyle: React.CSSProperties = {
   display: 'flex',
   gap: 8,
-  marginBottom: 8,
+  marginBottom: 4,
   alignItems: 'center',
+};
+
+const modeToggleStyle: React.CSSProperties = {
+  background: 'none',
+  border: 'none',
+  color: '#E8621A',
+  fontSize: 12,
+  fontWeight: 600,
+  cursor: 'pointer',
+  padding: '0 0 4px',
 };
 
 const addRowBtnStyle: React.CSSProperties = {

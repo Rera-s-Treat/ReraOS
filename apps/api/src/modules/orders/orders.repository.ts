@@ -15,12 +15,15 @@ const orderInclude = {
   items: {
     include: {
       product: {
-        select: { id: true, name: true, sku: true },
+        select: { id: true, name: true, sku: true, description: true },
       },
     },
   },
   createdBy: {
     select: { id: true, firstName: true, lastName: true },
+  },
+  payments: {
+    orderBy: { recordedAt: 'desc' as const },
   },
 } as const;
 
@@ -103,7 +106,8 @@ export class OrdersRepository {
     totalAmount: number;
     createdByUserId?: string;
     items: Array<{
-      productId: string;
+      productId?: string;
+      customDescription?: string;
       quantity: number;
       unitPrice: number;
       lineTotal: number;
@@ -127,6 +131,7 @@ export class OrdersRepository {
         items: {
           create: data.items.map((item) => ({
             productId: item.productId,
+            customDescription: item.customDescription,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             lineTotal: item.lineTotal,
@@ -141,6 +146,17 @@ export class OrdersRepository {
     return this.prisma.order.update({
       where: { id },
       data: { paymentStatus },
+      include: orderInclude,
+    });
+  }
+
+  async recordPayment(orderId: string, amount: number, note?: string) {
+    await this.prisma.orderPayment.create({
+      data: { orderId, amount, note },
+    });
+
+    return this.prisma.order.findUnique({
+      where: { id: orderId },
       include: orderInclude,
     });
   }

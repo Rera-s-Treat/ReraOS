@@ -17,7 +17,8 @@ import { RolesGuard } from '../../auth/roles.guard';
 import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { FindOrdersQueryDto } from './dto/find-orders-query.dto';
-import { SendWhatsappMessageDto } from './dto/send-whatsapp-message.dto';
+import { RecordPaymentDto } from './dto/record-payment.dto';
+import { SendOrderUpdateDto } from './dto/send-order-update.dto';
 import { UpdateFulfillmentStatusDto } from './dto/update-fulfillment-status.dto';
 import { UpdateKitchenStatusDto } from './dto/update-kitchen-status.dto';
 import { UpdatePaymentStatusDto } from './dto/update-payment-status.dto';
@@ -63,6 +64,13 @@ export class OrdersController {
     return this.ordersService.createOrder(body, req.user.id);
   }
 
+  @Post(':id/payments')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'STAFF')
+  @ApiOperation({ summary: 'Record a payment against an order (supports partial/installment payments)' })
+  async recordPayment(@Param('id') id: string, @Body() body: RecordPaymentDto) {
+    return this.ordersService.recordPayment(id, body);
+  }
+
   @Patch(':id/payment-status')
   @Roles('SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Confirm or update the payment status of an order' })
@@ -96,40 +104,40 @@ export class OrdersController {
     return this.ordersService.updateFulfillmentStatus(id, body, req.user.id);
   }
 
-  @Post(':id/whatsapp/confirmation')
+  @Post(':id/notify/confirmation')
   @Roles('SUPER_ADMIN', 'ADMIN', 'STAFF')
-  @ApiOperation({ summary: 'Send an order confirmation message via WhatsApp' })
+  @ApiOperation({ summary: 'Send an order confirmation message to the customer' })
   async sendConfirmationMessage(@Param('id') id: string) {
-    return this.ordersService.sendWhatsAppNotification(id, 'confirmation');
+    return this.ordersService.sendOrderNotification(id, 'confirmation');
   }
 
-  @Post(':id/whatsapp/payment-instruction')
+  @Post(':id/notify/payment-instruction')
   @Roles('SUPER_ADMIN', 'ADMIN', 'STAFF')
-  @ApiOperation({ summary: 'Send payment instructions via WhatsApp' })
+  @ApiOperation({ summary: 'Send payment instructions to the customer' })
   async sendPaymentInstructionMessage(@Param('id') id: string) {
-    return this.ordersService.sendWhatsAppNotification(
+    return this.ordersService.sendOrderNotification(
       id,
       'payment-instruction',
     );
   }
 
-  @Post(':id/whatsapp/ready')
+  @Post(':id/notify/ready')
   @Roles('SUPER_ADMIN', 'ADMIN', 'STAFF')
-  @ApiOperation({ summary: 'Send an order-ready message via WhatsApp' })
+  @ApiOperation({ summary: 'Send an order-ready message to the customer' })
   async sendReadyMessage(@Param('id') id: string) {
-    return this.ordersService.sendWhatsAppNotification(id, 'ready');
+    return this.ordersService.sendOrderNotification(id, 'ready');
   }
 
-  @Post(':id/whatsapp/update')
+  @Post(':id/notify/update')
   @Roles('SUPER_ADMIN', 'ADMIN', 'STAFF')
   @ApiOperation({
-    summary: 'Send a cancellation or custom update message via WhatsApp',
+    summary: 'Send a cancellation or custom update message to the customer',
   })
   async sendUpdateMessage(
     @Param('id') id: string,
-    @Body() body: SendWhatsappMessageDto,
+    @Body() body: SendOrderUpdateDto,
   ) {
-    return this.ordersService.sendWhatsAppNotification(
+    return this.ordersService.sendOrderNotification(
       id,
       'update',
       body.message,

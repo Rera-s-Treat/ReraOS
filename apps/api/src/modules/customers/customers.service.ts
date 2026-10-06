@@ -47,6 +47,34 @@ function computeSegmentTags(
 export class CustomersService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private async buildEventStats(): Promise<
+    Map<string, { attended: number; rsvps: number; interests: string[] }>
+  > {
+    const rsvps = await this.prisma.eventRsvp.findMany({
+      select: { phone: true, email: true, attendanceStatus: true, interests: true },
+    });
+
+    const byContact = new Map<
+      string,
+      { attended: number; rsvps: number; interests: string[] }
+    >();
+
+    for (const rsvp of rsvps) {
+      const key = rsvp.phone
+        ? normalizeNigerianPhoneNumber(rsvp.phone)
+        : rsvp.email?.toLowerCase();
+      if (!key) continue;
+
+      const existing = byContact.get(key) ?? { attended: 0, rsvps: 0, interests: [] };
+      existing.rsvps += 1;
+      if (rsvp.attendanceStatus === 'ATTENDED') existing.attended += 1;
+      existing.interests = Array.from(new Set([...existing.interests, ...rsvp.interests]));
+      byContact.set(key, existing);
+    }
+
+    return byContact;
+  }
+
   private async buildAggregates(): Promise<Map<string, CustomerAggregate>> {
     const orders = await this.prisma.order.findMany({
       select: {
@@ -97,6 +125,7 @@ export class CustomersService {
   async getCustomers(filters: FindCustomersQueryDto = {}) {
     const aggregates = await this.buildAggregates();
     const phones = Array.from(aggregates.keys());
+    const eventStats = await this.buildEventStats();
 
     const customerRecords = await this.prisma.customer.findMany({
       where: { phone: { in: phones } },
@@ -111,6 +140,10 @@ export class CustomersService {
         aggregate.totalSpend,
         aggregate.lastOrderAt,
       );
+      const events = eventStats.get(phone) ??
+        (aggregate.latestEmail
+          ? eventStats.get(aggregate.latestEmail.toLowerCase())
+          : undefined) ?? { attended: 0, rsvps: 0, interests: [] };
 
       return {
         phone,
@@ -123,6 +156,9 @@ export class CustomersService {
         lastOrderAt: aggregate.lastOrderAt,
         tags: Array.from(new Set([...segmentTags, ...(record?.tags ?? [])])),
         notes: record?.notes ?? null,
+        eventsAttended: events.attended,
+        eventRsvps: events.rsvps,
+        eventInterests: events.interests,
       };
     });
 
@@ -187,6 +223,20 @@ export class CustomersService {
     const record = await this.prisma.customer.findUnique({ where: { phone } });
     const segmentTags = computeSegmentTags(totalOrders, totalSpend, lastOrderAt);
 
+    const email = record?.email ?? latestOrder.customerEmail;
+    const allRsvps = await this.prisma.eventRsvp.findMany({
+      include: { event: { select: { title: true, slug: true, eventDate: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    const matchingRsvps = allRsvps.filter(
+      (rsvp) =>
+        (rsvp.phone && normalizeNigerianPhoneNumber(rsvp.phone) === phone) ||
+        (email && rsvp.email?.toLowerCase() === email.toLowerCase()),
+    );
+    const eventInterests = Array.from(
+      new Set(matchingRsvps.flatMap((rsvp) => rsvp.interests)),
+    );
+
     const productCounts = new Map<
       string,
       { productId: string; name: string; category: string | null; quantity: number }
@@ -195,6 +245,10 @@ export class CustomersService {
 
     for (const order of orders) {
       for (const item of order.items) {
+        // Custom (non-catalog) line items, e.g. a catering fee, aren't a
+        // product to track ordering behavior for.
+        if (!item.productId || !item.product) continue;
+
         const existing = productCounts.get(item.productId);
 
         const categoryName = item.product.category?.name ?? null;
@@ -252,7 +306,7 @@ export class CustomersService {
         fulfillmentStatus: order.fulfillmentStatus,
         createdAt: order.createdAt,
         itemsSummary: order.items
-          .map((item) => `${item.quantity}× ${item.product.name}`)
+          .map((item) => `${item.quantity}× ${item.product?.name ?? item.customDescription ?? 'Item'}`)
           .join(', '),
       })),
       productBehavior: {
@@ -260,7 +314,7 @@ export class CustomersService {
         favoriteCategory,
         lastOrderedItems: latestOrder.items.map((item) => ({
           productId: item.productId,
-          name: item.product.name,
+          name: item.product?.name ?? item.customDescription ?? 'Item',
           quantity: item.quantity,
         })),
       },
@@ -271,6 +325,20 @@ export class CustomersService {
         paymentStatus: order.paymentStatus,
         createdAt: order.createdAt,
       })),
+      events: {
+        attended: matchingRsvps.filter((r) => r.attendanceStatus === 'ATTENDED').length,
+        interests: eventInterests,
+        rsvps: matchingRsvps.map((rsvp) => ({
+          id: rsvp.id,
+          eventTitle: rsvp.event.title,
+          eventSlug: rsvp.event.slug,
+          eventDate: rsvp.event.eventDate,
+          attendanceStatus: rsvp.attendanceStatus,
+          feedback: rsvp.feedback,
+          feedbackRating: rsvp.feedbackRating,
+          createdAt: rsvp.createdAt,
+        })),
+      },
     };
   }
 

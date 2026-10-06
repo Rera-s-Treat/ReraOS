@@ -1,8 +1,11 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { ProductStatus } from '@prisma/client';
+import { Transform, Type } from 'class-transformer';
 import {
+  IsArray,
   IsBoolean,
   IsEnum,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -25,8 +28,26 @@ export class UpdateProductDto {
   @IsString()
   description?: string;
 
+  @ApiPropertyOptional({ example: 'Serves 1-2' })
+  @IsOptional()
+  @IsString()
+  servings?: string;
+
+  @ApiPropertyOptional({
+    example: ['2pcs chicken', 'Coleslaw', 'Fries'],
+    description: 'What comes with this item, shown as a bullet list',
+  })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? [value] : value,
+  )
+  @IsArray({ message: 'Content must be a list of items, one per line' })
+  @IsString({ each: true })
+  contents?: string[];
+
   @ApiPropertyOptional({ example: 3500 })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   price?: number;
@@ -44,8 +65,28 @@ export class UpdateProductDto {
     description: 'Whether the product currently appears on the menu',
   })
   @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value === 'true' : value,
+  )
   @IsBoolean()
   isAvailable?: boolean;
+
+  @ApiPropertyOptional({
+    example: false,
+    description: 'Highlight this item on the menu/homepage',
+  })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value === 'true' : value,
+  )
+  @IsBoolean()
+  featured?: boolean;
+
+  @ApiPropertyOptional({ example: 0, description: 'Lower numbers show first within a category' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  sortOrder?: number;
 
   @ApiPropertyOptional({
     description: 'ID of a category from GET /categories',
@@ -54,4 +95,15 @@ export class UpdateProductDto {
   @IsOptional()
   @IsString()
   categoryId?: string;
+
+  @ApiPropertyOptional({
+    example: false,
+    description: 'Clear all existing images (ignored if new images are uploaded)',
+  })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value === 'true' : value,
+  )
+  @IsBoolean()
+  removeImages?: boolean;
 }

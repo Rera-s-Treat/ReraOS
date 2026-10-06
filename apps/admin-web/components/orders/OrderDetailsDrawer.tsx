@@ -2,14 +2,17 @@
 
 import React, { useEffect, useState } from 'react';
 import { useCurrentUser } from '@/contexts/CurrentUserContext';
-import { Order, OrderAuditLogEntry } from '../../types/order';
+import { Order, OrderAuditLogEntry, OrderPayment } from '../../types/order';
 import {
   getOrderAuditLog,
-  sendWhatsappConfirmation,
-  sendWhatsappPaymentInstruction,
-  sendWhatsappReady,
-  sendWhatsappUpdate,
+  recordPayment,
+  sendOrderConfirmation,
+  sendOrderPaymentInstruction,
+  sendOrderReady,
+  sendOrderUpdate,
 } from '../../services/orders.services';
+
+const PUBLIC_SITE_ORIGIN = 'https://rerastreat.com.ng';
 
 interface OrderDetailsDrawerProps {
   isOpen: boolean;
@@ -27,6 +30,11 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
   const [actionMessage, setActionMessage] = useState('');
   const [isSendingAction, setIsSendingAction] = useState('');
   const [customMessage, setCustomMessage] = useState('');
+  const [payments, setPayments] = useState<OrderPayment[]>([]);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentNote, setPaymentNote] = useState('');
+  const [isRecordingPayment, setIsRecordingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
   const { isSuperAdmin } = useCurrentUser();
 
   useEffect(() => {
@@ -34,6 +42,10 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
 
     setActionMessage('');
     setCustomMessage('');
+    setPayments(order.payments ?? []);
+    setPaymentAmount('');
+    setPaymentNote('');
+    setPaymentError('');
 
     if (!isSuperAdmin) return;
 
@@ -62,7 +74,7 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
       setIsSendingAction(key);
       setActionMessage('');
       await action();
-      setActionMessage('Message sent (see server logs if WhatsApp is not yet configured).');
+      setActionMessage('Message sent (see server logs if SMS/email is not yet configured).');
     } catch (err: any) {
       setActionMessage(
         err?.response?.data?.message || 'Failed to send message',
@@ -71,6 +83,30 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
       setIsSendingAction('');
     }
   };
+
+  const handleRecordPayment = async () => {
+    const amount = Number(paymentAmount);
+    if (!amount || amount <= 0) {
+      setPaymentError('Enter a valid amount');
+      return;
+    }
+    try {
+      setIsRecordingPayment(true);
+      setPaymentError('');
+      const updated = await recordPayment(order.id, amount, paymentNote.trim() || undefined);
+      setPayments(updated.payments ?? []);
+      setPaymentAmount('');
+      setPaymentNote('');
+    } catch (err: any) {
+      setPaymentError(err?.response?.data?.message || 'Failed to record payment');
+    } finally {
+      setIsRecordingPayment(false);
+    }
+  };
+
+  const amountPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+  const balanceDue = Math.max(Number(order.totalAmount) - amountPaid, 0);
+  const invoiceUrl = `${PUBLIC_SITE_ORIGIN}/invoice?order=${order.id}`;
 
   const locationDetails =
     order.orderType === 'DINE_IN'
@@ -126,7 +162,12 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
             <tbody>
               {order.items.map((item) => (
                 <tr key={item.id}>
-                  <td style={itemTdStyle}>{item.product.name}</td>
+                  <td style={itemTdStyle}>
+                    {item.product?.name ?? item.customDescription ?? 'Item'}
+                    {item.product?.description && (
+                      <div style={itemDescStyle}>{item.product.description}</div>
+                    )}
+                  </td>
                   <td style={itemTdStyle}>{item.quantity}</td>
                   <td style={itemTdStyle}>
                     {Number(item.unitPrice).toLocaleString(undefined, {
@@ -168,6 +209,59 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
               {new Date(order.paymentClaimedAt).toLocaleString()}
             </p>
           )}
+
+          <div style={totalsBlockStyle}>
+            <div style={totalsRowStyle}>
+              <span>Amount Paid</span>
+              <span>{amountPaid.toLocaleString()}</span>
+            </div>
+            <div style={{ ...totalsRowStyle, fontWeight: 700 }}>
+              <span>Balance Due</span>
+              <span>{balanceDue.toLocaleString()}</span>
+            </div>
+          </div>
+
+          {payments.length > 0 && (
+            <ul style={paymentsListStyle}>
+              {payments.map((p) => (
+                <li key={p.id} style={lineStyle}>
+                  {Number(p.amount).toLocaleString()} — {new Date(p.recordedAt).toLocaleDateString()}
+                  {p.note ? ` (${p.note})` : ''}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div style={recordPaymentRowStyle}>
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              placeholder="Amount received"
+              value={paymentAmount}
+              onChange={(e) => setPaymentAmount(e.target.value)}
+              style={paymentInputStyle}
+            />
+            <input
+              placeholder="Note (optional)"
+              value={paymentNote}
+              onChange={(e) => setPaymentNote(e.target.value)}
+              style={{ ...paymentInputStyle, flex: 2 }}
+            />
+            <button
+              type="button"
+              onClick={handleRecordPayment}
+              disabled={isRecordingPayment}
+              style={actionBtnStyle}
+            >
+              {isRecordingPayment ? 'Saving...' : 'Record Payment'}
+            </button>
+          </div>
+          {paymentError && <p style={{ color: 'red', fontSize: 12 }}>{paymentError}</p>}
+
+          <a href={invoiceUrl} target="_blank" rel="noreferrer" style={invoiceLinkStyle}>
+            View / Share Invoice ↗
+          </a>
         </section>
 
         <section style={sectionStyle}>
@@ -179,14 +273,14 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
         </section>
 
         <section style={sectionStyle}>
-          <h3 style={sectionTitleStyle}>WhatsApp Actions</h3>
+          <h3 style={sectionTitleStyle}>Customer Notifications</h3>
           <div style={actionRowStyle}>
             <button
               style={actionBtnStyle}
               disabled={isSendingAction !== ''}
               onClick={() =>
                 runAction('confirmation', () =>
-                  sendWhatsappConfirmation(order.id),
+                  sendOrderConfirmation(order.id),
                 )
               }
             >
@@ -197,7 +291,7 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
               disabled={isSendingAction !== ''}
               onClick={() =>
                 runAction('payment-instruction', () =>
-                  sendWhatsappPaymentInstruction(order.id),
+                  sendOrderPaymentInstruction(order.id),
                 )
               }
             >
@@ -209,7 +303,7 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
               style={actionBtnStyle}
               disabled={isSendingAction !== ''}
               onClick={() =>
-                runAction('ready', () => sendWhatsappReady(order.id))
+                runAction('ready', () => sendOrderReady(order.id))
               }
             >
               {isSendingAction === 'ready' ? 'Sending...' : 'Send Order-Ready'}
@@ -228,7 +322,7 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
               disabled={isSendingAction !== ''}
               onClick={() =>
                 runAction('update', () =>
-                  sendWhatsappUpdate(order.id, customMessage.trim() || undefined),
+                  sendOrderUpdate(order.id, customMessage.trim() || undefined),
                 )
               }
             >
@@ -359,6 +453,12 @@ const itemTdStyle: React.CSSProperties = {
   borderBottom: '1px solid #f1f5f9',
 };
 
+const itemDescStyle: React.CSSProperties = {
+  fontSize: 12,
+  color: '#888',
+  marginTop: 2,
+};
+
 const totalsBlockStyle: React.CSSProperties = {
   marginTop: 12,
   fontSize: 14,
@@ -374,6 +474,38 @@ const placeholderStyle: React.CSSProperties = {
   fontSize: 13,
   color: '#999',
   fontStyle: 'italic',
+};
+
+const paymentsListStyle: React.CSSProperties = {
+  margin: '8px 0 0',
+  paddingLeft: 18,
+};
+
+const recordPaymentRowStyle: React.CSSProperties = {
+  display: 'flex',
+  gap: 8,
+  marginTop: 12,
+  flexWrap: 'wrap',
+};
+
+const paymentInputStyle: React.CSSProperties = {
+  flex: 1,
+  padding: '8px 10px',
+  fontSize: 13,
+  border: '1px solid #d1d5db',
+  borderRadius: 8,
+  outline: 'none',
+  fontFamily: 'inherit',
+  minWidth: 120,
+};
+
+const invoiceLinkStyle: React.CSSProperties = {
+  display: 'inline-block',
+  marginTop: 12,
+  fontSize: 13,
+  fontWeight: 600,
+  color: '#E8621A',
+  textDecoration: 'none',
 };
 
 const actionRowStyle: React.CSSProperties = {
