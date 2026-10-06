@@ -25,8 +25,22 @@ const PUBLIC_SITE_ORIGIN = 'https://rerastreat.com.ng';
 const RESEND_API_URL = 'https://api.resend.com/emails';
 const RESEND_DEFAULT_FROM = "Rera's Treat <onboarding@resend.dev>";
 
-const BREVO_SMS_API_URL = 'https://api.brevo.com/v3/transactionalSMS/sms';
-const BREVO_DEFAULT_SENDER = 'RerasTreat';
+const IBULKY_SMS_API_URL = 'https://api.ibulky.com/sendsms/';
+const IBULKY_DEFAULT_SENDER = 'RerasTreat';
+
+/** iBulky error codes (HTTP API v2.0.0, section 3.0). */
+const IBULKY_ERROR_CODES: Record<string, string> = {
+  '2499': 'API is not active',
+  '2502': 'Missing or blank required parameter',
+  '2503': 'Invalid msgtype',
+  '2504': 'Invalid message',
+  '2505': 'Invalid recipient',
+  '2506': 'Sender ID not allowed',
+  '2507': 'Invalid sender ID',
+  '2508': 'User validation failed (check API key / API access enabled)',
+  '2509': 'iBulky internal error or service unavailable',
+  '2510': 'Insufficient credit',
+};
 
 export type OrderNotificationType =
   | 'confirmation'
@@ -98,7 +112,7 @@ export class NotificationsService {
   }
 
   private get isSmsConfigured(): boolean {
-    return Boolean(process.env.BREVO_API_KEY);
+    return Boolean(process.env.IBULKY_API_KEY);
   }
 
   private async sendEmailRaw(
@@ -151,31 +165,36 @@ export class NotificationsService {
   ): Promise<{ success: boolean; error?: string }> {
     if (!this.isSmsConfigured) {
       this.logger.warn(
-        `[SMS skipped - no Brevo API key configured] To: ${to} | Message: ${message}`,
+        `[SMS skipped - no iBulky API key configured] To: ${to} | Message: ${message}`,
       );
-      return { success: false, error: 'Brevo API key not configured' };
+      return { success: false, error: 'iBulky API key not configured' };
     }
 
+    // GSM 03.38 can't carry characters like ₦ or ×, so fall back to unicode.
+    const msgtype = /[^\x00-\x7F]/.test(message) ? 'unicode' : 'text';
+    const params = new URLSearchParams({
+      apikey: process.env.IBULKY_API_KEY!,
+      sender: process.env.IBULKY_SMS_SENDER || IBULKY_DEFAULT_SENDER,
+      recipient: normalizeNigerianPhoneNumber(to),
+      message,
+      msgtype,
+      delivery: 'no',
+    });
+
     try {
-      const response = await fetch(BREVO_SMS_API_URL, {
-        method: 'POST',
-        headers: {
-          'api-key': process.env.BREVO_API_KEY!,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sender: process.env.BREVO_SMS_SENDER || BREVO_DEFAULT_SENDER,
-          recipient: normalizeNigerianPhoneNumber(to),
-          content: message,
-          type: 'transactional',
-        }),
-      });
+      const response = await fetch(`${IBULKY_SMS_API_URL}?${params.toString()}`);
+      const responseBody = (await response.text()).trim();
 
-      const responseBody = await response.text();
-
-      if (!response.ok) {
-        this.logger.error(`SMS send to ${to} failed: ${response.status} ${responseBody}`);
-        return { success: false, error: `${response.status}: ${responseBody}` };
+      // iBulky always answers 200; success is "SENT|<MSG_ID>" (or "2501|..."
+      // when delivery reports are on), failures are a bare error code.
+      const succeeded =
+        response.ok && (responseBody.startsWith('SENT|') || responseBody.startsWith('2501|'));
+      if (!succeeded) {
+        const reason = IBULKY_ERROR_CODES[responseBody] ?? 'Unexpected response';
+        this.logger.error(
+          `SMS send to ${to} failed: ${response.status} ${responseBody} (${reason})`,
+        );
+        return { success: false, error: `${responseBody}: ${reason}` };
       }
       return { success: true };
     } catch (error) {
