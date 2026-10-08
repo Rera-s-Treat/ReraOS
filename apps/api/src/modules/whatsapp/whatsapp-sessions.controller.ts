@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 
+import { CheckoutSessionDto } from './dto/checkout-session.dto';
 import { StartSessionDto } from './dto/start-session.dto';
 import { UpdateSessionDto } from './dto/update-session.dto';
 import { WhatsappSessionsService } from './whatsapp-sessions.service';
@@ -44,8 +45,8 @@ export class WhatsappSessionsController {
 
   @Post(':id/checkout')
   @ApiOperation({ summary: 'Convert the session cart into a real order' })
-  async checkout(@Param('id') id: string) {
-    return this.whatsappSessionsService.checkout(id);
+  async checkout(@Param('id') id: string, @Body() body?: CheckoutSessionDto) {
+    return this.whatsappSessionsService.checkout(id, body?.paymentMethod);
   }
 
   @Post(':id/mark-paid')

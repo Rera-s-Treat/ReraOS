@@ -5,6 +5,13 @@ export type PaymentStatus =
   | 'CONFIRMED'
   | 'FAILED'
   | 'REFUNDED';
+export type PaymentMethod = 'TRANSFER' | 'CASH';
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  TRANSFER: 'Bank transfer',
+  CASH: 'Cash',
+};
+
 export type KitchenStatus =
   | 'NOT_STARTED'
   | 'KITCHEN_INFORMED'
@@ -46,6 +53,7 @@ export interface OrderPayment {
   id: string;
   orderId: string;
   amount: string;
+  method?: PaymentMethod;
   note?: string | null;
   recordedAt: string;
 }
@@ -65,6 +73,7 @@ export interface Order {
   discountAmount: string;
   totalAmount: string;
   paymentStatus: PaymentStatus;
+  paymentMethod?: PaymentMethod;
   paymentClaimedAt?: string | null;
   kitchenStatus: KitchenStatus;
   fulfillmentStatus: FulfillmentStatus;
@@ -112,5 +121,6 @@ export interface CreateOrderPayload {
   deliveryAddress?: string;
   notes?: string;
   discountAmount?: number;
+  paymentMethod?: PaymentMethod;
   items: CreateOrderItemPayload[];
 }

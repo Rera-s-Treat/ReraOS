@@ -219,6 +219,7 @@ export class OrdersService {
       tableNumber: createOrderDto.tableNumber,
       deliveryAddress: createOrderDto.deliveryAddress,
       notes: createOrderDto.notes,
+      paymentMethod: createOrderDto.paymentMethod,
       subtotal,
       discountAmount,
       totalAmount,
@@ -457,7 +458,12 @@ export class OrdersService {
 
   async recordPayment(id: string, dto: RecordPaymentDto) {
     await this.getOrderById(id);
-    const updated = await this.ordersRepository.recordPayment(id, dto.amount, dto.note);
+    const updated = await this.ordersRepository.recordPayment(
+      id,
+      dto.amount,
+      dto.note,
+      dto.method,
+    );
     return this.withUnifiedStatus(updated!);
   }
 
@@ -495,8 +501,10 @@ export class OrdersService {
       amountPaid,
       balance,
       isSettled: balance <= 0,
+      paymentMethod: order.paymentMethod,
       payments: order.payments.map((p) => ({
         amount: p.amount,
+        method: p.method,
         recordedAt: p.recordedAt,
       })),
     };

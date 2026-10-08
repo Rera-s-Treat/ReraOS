@@ -1,5 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { OrderChannel, Prisma, WhatsappSessionStatus } from '@prisma/client';
+import {
+  OrderChannel,
+  OrderType,
+  PaymentMethod,
+  Prisma,
+  WhatsappSessionStatus,
+} from '@prisma/client';
 
 import { PAYMENT_ACCOUNT } from '../../common/payment-account';
 import { ProductsRepository } from '../products/products.repository';
@@ -75,7 +81,7 @@ export class WhatsappSessionsService {
     });
   }
 
-  async checkout(id: string) {
+  async checkout(id: string, paymentMethod: PaymentMethod = PaymentMethod.TRANSFER) {
     const session = await this.getSessionById(id);
 
     if (session.status !== WhatsappSessionStatus.ACTIVE) {
@@ -104,6 +110,17 @@ export class WhatsappSessionsService {
       );
     }
 
+    // Cash is paid in person at the kitchen, so it's only offered when the
+    // customer is coming to us.
+    if (
+      paymentMethod === PaymentMethod.CASH &&
+      session.orderType === OrderType.DELIVERY
+    ) {
+      throw new BadRequestException(
+        'Cash payment is only available for pickup and dine-in orders',
+      );
+    }
+
     const cartItems = (session.cartJson as unknown as CartItemDto[]) ?? [];
 
     if (cartItems.length === 0) {
@@ -119,6 +136,7 @@ export class WhatsappSessionsService {
       deliveryAddress: session.deliveryAddress ?? undefined,
       tableNumber: session.tableNumber ?? undefined,
       notes: session.notes ?? undefined,
+      paymentMethod,
       items: cartItems.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
@@ -131,7 +149,7 @@ export class WhatsappSessionsService {
 
     return {
       order,
-      paymentAccount: PAYMENT_ACCOUNT,
+      paymentAccount: paymentMethod === PaymentMethod.TRANSFER ? PAYMENT_ACCOUNT : null,
     };
   }
 
