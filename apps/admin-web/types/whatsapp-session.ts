@@ -1,4 +1,6 @@
-import { Order, OrderType } from './order';
+import { Order, OrderType, PaymentMethod } from './order';
+
+export type { PaymentMethod };
 import { Product } from './product';
 
 export type WhatsappConversationStep =
@@ -65,7 +67,8 @@ export interface PaymentAccount {
 
 export interface CheckoutResponse {
   order: Order;
-  paymentAccount: PaymentAccount;
+  /** Null for cash orders - there's no account to pay into. */
+  paymentAccount: PaymentAccount | null;
 }
 
 export type MenuProduct = Product;

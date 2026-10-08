@@ -57,6 +57,7 @@ interface NotifiableOrder {
   channel: string;
   orderType?: string;
   deliveryAddress?: string | null;
+  paymentMethod?: string | null;
   totalAmount: unknown;
   items: Array<{
     quantity: number;
@@ -92,6 +93,10 @@ function summarizeItems(items: NotifiableOrder['items']): string {
   return items
     .map((item) => `${item.quantity}× ${item.product?.name ?? item.customDescription ?? 'Item'}`)
     .join(', ');
+}
+
+function isCashOrder(order: NotifiableOrder): boolean {
+  return order.paymentMethod === 'CASH';
 }
 
 function fulfillmentLine(order: NotifiableOrder): string {
@@ -369,6 +374,22 @@ export class NotificationsService {
   async notifyOrderReceived(order: NotifiableOrder): Promise<void> {
     const itemsSummary = summarizeItems(order.items);
     const total = formatNaira(order.totalAmount);
+    const cash = isCashOrder(order);
+
+    const paymentSection = cash
+      ? `You're paying cash. Please pay ${total} at the kitchen (${PICKUP_LOCATION}) and we'll confirm it there.`
+      : `To get things moving, please pay to:
+
+**Bank:** ${PAYMENT_ACCOUNT.bankName}
+**Account Name:** ${PAYMENT_ACCOUNT.accountName}
+**Account Number:** ${PAYMENT_ACCOUNT.accountNumber}
+
+Once that's sorted, we'll get to the important part — making your food.`;
+    const paymentSms = cash
+      ? `Please pay ${total} cash at the kitchen (${PICKUP_LOCATION}).`
+      : `Pay to ${PAYMENT_ACCOUNT.accountName}, ${PAYMENT_ACCOUNT.accountNumber} (${PAYMENT_ACCOUNT.bankName}).
+
+Once that's done, we'll get cooking.`;
 
     await this.notifyCustomer({
       type: NotificationType.ORDER_RECEIVED,
@@ -383,13 +404,7 @@ ${itemsSummary}
 
 Total: ${total}
 
-To get things moving, please pay to:
-
-**Bank:** ${PAYMENT_ACCOUNT.bankName}
-**Account Name:** ${PAYMENT_ACCOUNT.accountName}
-**Account Number:** ${PAYMENT_ACCOUNT.accountNumber}
-
-Once that's sorted, we'll get to the important part — making your food.
+${paymentSection}
 
 We'll keep you posted.
 
@@ -399,9 +414,7 @@ Come hungry. We have plenty.`,
 
 We got your order #${order.orderNumber}. Total: ${total}.
 
-Pay to ${PAYMENT_ACCOUNT.accountName}, ${PAYMENT_ACCOUNT.accountNumber} (${PAYMENT_ACCOUNT.bankName}).
-
-Once that's done, we'll get cooking.
+${paymentSms}
 
 — Rera's Treat`,
       orderId: order.id,
@@ -417,6 +430,7 @@ Once that's done, we'll get cooking.
         `New order received: ${order.orderNumber}`,
         `Customer: ${order.customerName} (${order.customerPhone})`,
         `Channel: ${order.channel}`,
+        `Payment: ${cash ? 'Cash at the kitchen' : 'Bank transfer'}`,
         `Items: ${itemsSummary}`,
         `Total: ${total}`,
       ].join('\n'),
@@ -426,7 +440,7 @@ Once that's done, we'll get cooking.
     if (order.channel === 'WHATSAPP' || order.channel === 'WEBSITE') {
       await this.sendSmsRaw(
         STAFF_SMS_NUMBER,
-        `New order! #${order.orderNumber} — ${itemsSummary}. Total: ${total}.`,
+        `New order! #${order.orderNumber} — ${itemsSummary}. Total: ${total}${cash ? ' (paying cash)' : ''}.`,
       );
     }
   }
@@ -687,7 +701,9 @@ We're sorry this one didn't make it to you — we hope we get another chance to 
   // ---------------------------------------------------------------------
 
   async notifyPaymentInstructions(order: NotifiableOrder): Promise<void> {
-    const detail = `Please pay ${formatNaira(order.totalAmount)} to ${PAYMENT_ACCOUNT.accountName}, ${PAYMENT_ACCOUNT.accountNumber} (${PAYMENT_ACCOUNT.bankName}). Reply once you've made the payment.`;
+    const detail = isCashOrder(order)
+      ? `Please pay ${formatNaira(order.totalAmount)} cash at the kitchen (${PICKUP_LOCATION}) for order #${order.orderNumber}.`
+      : `Please pay ${formatNaira(order.totalAmount)} to ${PAYMENT_ACCOUNT.accountName}, ${PAYMENT_ACCOUNT.accountNumber} (${PAYMENT_ACCOUNT.bankName}). Reply once you've made the payment.`;
 
     await this.notifyCustomer({
       type: NotificationType.PAYMENT_INSTRUCTIONS_SENT,

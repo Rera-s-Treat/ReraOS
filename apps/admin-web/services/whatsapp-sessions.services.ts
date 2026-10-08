@@ -2,6 +2,7 @@ import axiosInstance from './axios';
 import { Product } from '../types/product';
 import {
   CheckoutResponse,
+  PaymentMethod,
   StartSessionPayload,
   UpdateSessionPayload,
   WhatsappSession,
@@ -37,9 +38,11 @@ export const updateSession = async (
 
 export const checkoutSession = async (
   id: string,
+  paymentMethod: PaymentMethod = 'TRANSFER',
 ): Promise<CheckoutResponse> => {
   const response = await axiosInstance.post(
     `/whatsapp-sessions/${id}/checkout`,
+    { paymentMethod },
   );
   return response.data;
 };

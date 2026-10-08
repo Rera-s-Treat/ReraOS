@@ -6,6 +6,7 @@ import {
   Order,
   OrderAuditLogEntry,
   OrderFilters,
+  PaymentMethod,
   PaymentStatus,
 } from '../types/order';
 
@@ -103,7 +104,12 @@ export const recordPayment = async (
   id: string,
   amount: number,
   note?: string,
+  method?: PaymentMethod,
 ): Promise<Order> => {
-  const response = await axiosInstance.post(`/orders/${id}/payments`, { amount, note });
+  const response = await axiosInstance.post(`/orders/${id}/payments`, {
+    amount,
+    note,
+    method,
+  });
   return response.data;
 };

@@ -2,7 +2,12 @@
 
 import React, { useEffect, useState } from 'react';
 import { Product } from '../../types/product';
-import { OrderChannel, OrderType } from '../../types/order';
+import {
+  OrderChannel,
+  OrderType,
+  PAYMENT_METHOD_LABELS,
+  PaymentMethod,
+} from '../../types/order';
 import { getProducts } from '../../services/products.services';
 import { createOrder } from '../../services/orders.services';
 
@@ -30,6 +35,7 @@ interface FormState {
   deliveryAddress: string;
   notes: string;
   discountAmount: string;
+  paymentMethod: PaymentMethod;
 }
 
 const initialForm: FormState = {
@@ -42,6 +48,7 @@ const initialForm: FormState = {
   deliveryAddress: '',
   notes: '',
   discountAmount: '0',
+  paymentMethod: 'TRANSFER',
 };
 
 const emptyRow: ItemRow = {
@@ -54,6 +61,7 @@ const emptyRow: ItemRow = {
 
 const channelOptions: OrderChannel[] = ['WHATSAPP', 'MANUAL', 'WALK_IN', 'CATERING'];
 const orderTypeOptions: OrderType[] = ['PICKUP', 'DELIVERY', 'DINE_IN'];
+const paymentMethodOptions: PaymentMethod[] = ['TRANSFER', 'CASH'];
 
 export const CreateOrderModal: React.FC<CreateOrderModalProps> = ({
   isOpen,
@@ -195,6 +203,7 @@ export const CreateOrderModal: React.FC<CreateOrderModalProps> = ({
         discountAmount: form.discountAmount.trim()
           ? Number(form.discountAmount)
           : undefined,
+        paymentMethod: form.paymentMethod,
         items: rows.map((row) => ({
           productId: row.mode === 'product' ? row.productId : undefined,
           customDescription: row.mode === 'custom' ? row.customDescription.trim() : undefined,
@@ -293,6 +302,22 @@ export const CreateOrderModal: React.FC<CreateOrderModalProps> = ({
                 ))}
               </select>
             </div>
+          </div>
+
+          <div style={fieldStyle}>
+            <label>Payment Method</label>
+            <select
+              name="paymentMethod"
+              value={form.paymentMethod}
+              onChange={handleChange}
+              style={inputStyle}
+            >
+              {paymentMethodOptions.map((method) => (
+                <option key={method} value={method}>
+                  {PAYMENT_METHOD_LABELS[method]}
+                </option>
+              ))}
+            </select>
           </div>
 
           {form.orderType === 'DINE_IN' && (

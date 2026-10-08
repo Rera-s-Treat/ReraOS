@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Logo } from '../../components/brand/Logo';
 import { Product } from '../../types/product';
 import { Category } from '../../types/category';
-import { Order, OrderType } from '../../types/order';
+import { Order, OrderType, PaymentMethod } from '../../types/order';
 import {
   CartItem,
   PaymentAccount,
@@ -28,6 +28,11 @@ const STORAGE_KEY = 'reraos_order_session_id';
 
 type Phase = 'phone' | 'menu' | 'details' | 'review' | 'payment' | 'done';
 
+// Cash orders have nothing to transfer or claim, so they skip straight to done.
+function phaseForPlacedOrder(order: Order): Phase {
+  return order.paymentMethod === 'CASH' || order.paymentClaimedAt ? 'done' : 'payment';
+}
+
 export default function PublicOrderPage() {
   const [phase, setPhase] = useState<Phase>('phone');
   const [loading, setLoading] = useState(false);
@@ -46,6 +51,7 @@ export default function PublicOrderPage() {
   const [orderType, setOrderType] = useState<OrderType>('DELIVERY');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [notes, setNotes] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('TRANSFER');
 
   const [order, setOrder] = useState<Order | null>(null);
   const [paymentAccount, setPaymentAccount] = useState<PaymentAccount | null>(
@@ -71,7 +77,7 @@ export default function PublicOrderPage() {
 
     if (session.order) {
       setOrder(session.order);
-      setPhase(session.order.paymentClaimedAt ? 'done' : 'payment');
+      setPhase(phaseForPlacedOrder(session.order));
       return;
     }
 
@@ -110,7 +116,7 @@ export default function PublicOrderPage() {
 
       if (session.order) {
         setOrder(session.order);
-        setPhase(session.order.paymentClaimedAt ? 'done' : 'payment');
+        setPhase(phaseForPlacedOrder(session.order));
         return;
       }
 
@@ -238,10 +244,12 @@ export default function PublicOrderPage() {
     try {
       setLoading(true);
       setError('');
-      const result = await checkoutSession(sessionId);
+      // Cash is paid at the kitchen, so it isn't offered for delivery.
+      const method: PaymentMethod = orderType === 'DELIVERY' ? 'TRANSFER' : paymentMethod;
+      const result = await checkoutSession(sessionId, method);
       setOrder(result.order);
       setPaymentAccount(result.paymentAccount);
-      setPhase('payment');
+      setPhase(phaseForPlacedOrder(result.order));
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to place your order');
     } finally {
@@ -514,6 +522,34 @@ export default function PublicOrderPage() {
                 : 'Pickup order'}
             </p>
 
+            <fieldset style={paymentChoiceStyle}>
+              <legend style={{ fontWeight: 600, fontSize: 14, padding: 0 }}>
+                How will you pay?
+              </legend>
+              <label style={paymentOptionStyle}>
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="TRANSFER"
+                  checked={orderType === 'DELIVERY' || paymentMethod === 'TRANSFER'}
+                  onChange={() => setPaymentMethod('TRANSFER')}
+                />
+                Bank transfer
+              </label>
+              {orderType !== 'DELIVERY' && (
+                <label style={paymentOptionStyle}>
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="CASH"
+                    checked={paymentMethod === 'CASH'}
+                    onChange={() => setPaymentMethod('CASH')}
+                  />
+                  Cash at the kitchen
+                </label>
+              )}
+            </fieldset>
+
             <button
               type="button"
               onClick={handlePlaceOrder}
@@ -570,17 +606,48 @@ export default function PublicOrderPage() {
         {phase === 'done' && order && (
           <div>
             <h2 style={sectionTitleStyle}>Thank you!</h2>
-            <p>
-              We've received your payment confirmation for order{' '}
-              <strong>{order.orderNumber}</strong>. Our team will verify it
-              shortly and get your order started.
-            </p>
+            {order.paymentMethod === 'CASH' ? (
+              <p>
+                Order <strong>{order.orderNumber}</strong> is in. Please pay{' '}
+                <strong>
+                  {Number(order.totalAmount).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </strong>{' '}
+                in cash at the kitchen when you come for it.
+              </p>
+            ) : (
+              <p>
+                We've received your payment confirmation for order{' '}
+                <strong>{order.orderNumber}</strong>. Our team will verify it
+                shortly and get your order started.
+              </p>
+            )}
           </div>
         )}
       </div>
     </main>
   );
 }
+
+const paymentChoiceStyle: React.CSSProperties = {
+  border: '1px solid #e5e7eb',
+  borderRadius: 8,
+  padding: '10px 12px',
+  margin: '0 0 16px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 8,
+};
+
+const paymentOptionStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  fontSize: 14,
+  cursor: 'pointer',
+};
 
 const pageStyle: React.CSSProperties = {
   minHeight: '100vh',

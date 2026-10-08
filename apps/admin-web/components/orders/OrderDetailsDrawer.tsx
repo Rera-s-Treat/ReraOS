@@ -2,7 +2,13 @@
 
 import React, { useEffect, useState } from 'react';
 import { useCurrentUser } from '@/contexts/CurrentUserContext';
-import { Order, OrderAuditLogEntry, OrderPayment } from '../../types/order';
+import {
+  Order,
+  OrderAuditLogEntry,
+  OrderPayment,
+  PAYMENT_METHOD_LABELS,
+  PaymentMethod,
+} from '../../types/order';
 import {
   getOrderAuditLog,
   recordPayment,
@@ -33,6 +39,7 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
   const [payments, setPayments] = useState<OrderPayment[]>([]);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentNote, setPaymentNote] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('TRANSFER');
   const [isRecordingPayment, setIsRecordingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState('');
   const { isSuperAdmin } = useCurrentUser();
@@ -45,6 +52,7 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
     setPayments(order.payments ?? []);
     setPaymentAmount('');
     setPaymentNote('');
+    setPaymentMethod(order.paymentMethod ?? 'TRANSFER');
     setPaymentError('');
 
     if (!isSuperAdmin) return;
@@ -93,7 +101,12 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
     try {
       setIsRecordingPayment(true);
       setPaymentError('');
-      const updated = await recordPayment(order.id, amount, paymentNote.trim() || undefined);
+      const updated = await recordPayment(
+        order.id,
+        amount,
+        paymentNote.trim() || undefined,
+        paymentMethod,
+      );
       setPayments(updated.payments ?? []);
       setPaymentAmount('');
       setPaymentNote('');
@@ -203,6 +216,9 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
         <section style={sectionStyle}>
           <h3 style={sectionTitleStyle}>Payment</h3>
           <p style={lineStyle}>Status: {order.paymentStatus}</p>
+          <p style={lineStyle}>
+            Method: {PAYMENT_METHOD_LABELS[order.paymentMethod ?? 'TRANSFER']}
+          </p>
           {order.paymentClaimedAt && (
             <p style={lineStyle}>
               Customer claimed payment at:{' '}
@@ -226,6 +242,7 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
               {payments.map((p) => (
                 <li key={p.id} style={lineStyle}>
                   {Number(p.amount).toLocaleString()} — {new Date(p.recordedAt).toLocaleDateString()}
+                  {p.method ? ` · ${PAYMENT_METHOD_LABELS[p.method]}` : ''}
                   {p.note ? ` (${p.note})` : ''}
                 </li>
               ))}
@@ -242,6 +259,15 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
               onChange={(e) => setPaymentAmount(e.target.value)}
               style={paymentInputStyle}
             />
+            <select
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+              style={paymentInputStyle}
+              aria-label="Payment method"
+            >
+              <option value="CASH">{PAYMENT_METHOD_LABELS.CASH}</option>
+              <option value="TRANSFER">{PAYMENT_METHOD_LABELS.TRANSFER}</option>
+            </select>
             <input
               placeholder="Note (optional)"
               value={paymentNote}
