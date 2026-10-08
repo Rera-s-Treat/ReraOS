@@ -17,6 +17,7 @@ import {
   getAllTimeOverview,
   getMonthlyAnalytics,
 } from '@/services/dashboard.services';
+import { downloadCsv } from '@/lib/csv';
 import { AllTimeOverview, MonthlyAnalytics } from '@/types/dashboard';
 
 const CHART_COLORS = {
@@ -30,25 +31,6 @@ const CHART_COLORS = {
 
 function formatNaira(amount: number): string {
   return `₦${Number(amount).toLocaleString()}`;
-}
-
-function escapeCsvValue(value: string | number): string {
-  const str = String(value);
-  return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
-}
-
-function downloadCsv(filename: string, headers: string[], rows: (string | number)[][]) {
-  const allRows = headers.length > 0 ? [headers, ...rows] : rows;
-  const csv = allRows.map((row) => row.map(escapeCsvValue).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
 }
 
 function DownloadButton({ onClick }: { onClick: () => void }) {
