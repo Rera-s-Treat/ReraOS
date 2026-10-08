@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { OrderChannel, OrderType } from '@prisma/client';
+import { OrderChannel, OrderType, PaymentMethod } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
@@ -104,6 +104,16 @@ export class CreateOrderDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({
+    enum: PaymentMethod,
+    example: PaymentMethod.CASH,
+    description: 'How the customer is paying',
+    default: PaymentMethod.TRANSFER,
+  })
+  @IsOptional()
+  @IsEnum(PaymentMethod)
+  paymentMethod?: PaymentMethod;
 
   @ApiPropertyOptional({
     example: 0,

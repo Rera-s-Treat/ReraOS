@@ -5,6 +5,7 @@ import {
   KitchenStatus,
   OrderChannel,
   OrderType,
+  PaymentMethod,
   PaymentStatus,
   Prisma,
 } from '@prisma/client';
@@ -101,6 +102,7 @@ export class OrdersRepository {
     tableNumber?: string;
     deliveryAddress?: string;
     notes?: string;
+    paymentMethod?: PaymentMethod;
     subtotal: number;
     discountAmount: number;
     totalAmount: number;
@@ -124,6 +126,7 @@ export class OrdersRepository {
         tableNumber: data.tableNumber,
         deliveryAddress: data.deliveryAddress,
         notes: data.notes,
+        paymentMethod: data.paymentMethod,
         subtotal: data.subtotal,
         discountAmount: data.discountAmount,
         totalAmount: data.totalAmount,
@@ -150,9 +153,14 @@ export class OrdersRepository {
     });
   }
 
-  async recordPayment(orderId: string, amount: number, note?: string) {
+  async recordPayment(
+    orderId: string,
+    amount: number,
+    note?: string,
+    method?: PaymentMethod,
+  ) {
     await this.prisma.orderPayment.create({
-      data: { orderId, amount, note },
+      data: { orderId, amount, note, method },
     });
 
     return this.prisma.order.findUnique({

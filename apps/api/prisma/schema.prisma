@@ -47,6 +47,11 @@ enum OrderType {
   DINE_IN
 }
 
+enum PaymentMethod {
+  TRANSFER
+  CASH
+}
+
 enum PaymentStatus {
   PENDING_CONFIRMATION
   CONFIRMED
@@ -315,6 +320,7 @@ model Order {
   totalAmount        Decimal              @db.Decimal(12, 2)
 
   paymentStatus      PaymentStatus        @default(PENDING_CONFIRMATION)
+  paymentMethod      PaymentMethod        @default(TRANSFER)
   paymentClaimedAt   DateTime?
   kitchenStatus      KitchenStatus        @default(NOT_STARTED)
   fulfillmentStatus  FulfillmentStatus    @default(PENDING)
@@ -373,7 +379,8 @@ model OrderPayment {
   orderId    String
   order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  amount     Decimal  @db.Decimal(12, 2)
+  amount     Decimal       @db.Decimal(12, 2)
+  method     PaymentMethod @default(TRANSFER)
   note       String?
 
   recordedAt DateTime @default(now())
