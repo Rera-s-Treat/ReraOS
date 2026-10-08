@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { downloadCsv } from '@/lib/csv';
 import { getCustomers } from '@/services/customers.services';
 import { Customer, CustomerFilters, CustomerSegment } from '@/types/customer';
 
@@ -24,6 +25,46 @@ const segmentOptions: CustomerSegment[] = ['new', 'repeat', 'vip', 'inactive'];
 
 function formatNaira(amount: number): string {
   return `₦${Number(amount).toLocaleString()}`;
+}
+
+function formatCsvDate(value: string): string {
+  return value ? new Date(value).toISOString().slice(0, 10) : '';
+}
+
+function exportCustomersCsv(customers: Customer[]) {
+  downloadCsv(
+    `rera-customers-${new Date().toISOString().slice(0, 10)}.csv`,
+    [
+      'Name',
+      'Phone',
+      'Email',
+      'Orders',
+      'Total Spend (NGN)',
+      'Avg Order Value (NGN)',
+      'First Order',
+      'Last Order',
+      'Events Attended',
+      'Event RSVPs',
+      'Event Interests',
+      'Tags',
+      'Notes',
+    ],
+    customers.map((customer) => [
+      customer.displayName,
+      customer.phone,
+      customer.email ?? '',
+      customer.totalOrders,
+      customer.totalSpend,
+      Math.round(customer.averageOrderValue),
+      formatCsvDate(customer.firstOrderAt),
+      formatCsvDate(customer.lastOrderAt),
+      customer.eventsAttended,
+      customer.eventRsvps,
+      customer.eventInterests.join('; '),
+      customer.tags.join('; '),
+      customer.notes ?? '',
+    ]),
+  );
 }
 
 function tagBadgeStyle(tag: string): React.CSSProperties {
@@ -118,6 +159,18 @@ export default function CustomersPage() {
             See who your customers are, how often they buy, and how much they spend.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => exportCustomersCsv(customers)}
+          disabled={isLoading || customers.length === 0}
+          style={{
+            ...exportBtnStyle,
+            ...(isLoading || customers.length === 0 ? disabledBtnStyle : {}),
+          }}
+          title="Download the customers currently shown (respects filters)"
+        >
+          ↓ Export CSV ({customers.length})
+        </button>
       </div>
 
       <form onSubmit={handleApplyFilters} style={filterBarStyle}>
@@ -292,6 +345,23 @@ const clearFilterBtnStyle: React.CSSProperties = {
   border: '1px solid #d1d5db',
   borderRadius: 8,
   cursor: 'pointer',
+};
+
+const exportBtnStyle: React.CSSProperties = {
+  padding: '8px 16px',
+  fontSize: 13,
+  fontWeight: 600,
+  background: '#fff',
+  color: '#1C4A1C',
+  border: '1px solid #1C4A1C',
+  borderRadius: 8,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+};
+
+const disabledBtnStyle: React.CSSProperties = {
+  opacity: 0.5,
+  cursor: 'not-allowed',
 };
 
 const viewButtonStyle: React.CSSProperties = {
