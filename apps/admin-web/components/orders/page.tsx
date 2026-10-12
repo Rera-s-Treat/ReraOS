@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { CreateOrderModal } from './CreateOrderModal';
 import { OrderStatusModal } from './OrderStatusModal';
 import { OrderDetailsDrawer } from './OrderDetailsDrawer';
+import { exportOrderItemsCsv, exportOrdersCsv } from './exportOrders';
 import { getOrders } from '../../services/orders.services';
 import {
   FulfillmentStatus,
@@ -103,6 +104,8 @@ export default function OrdersPage() {
     fetchOrders(initialFilters);
   };
 
+  const exportDisabled = isLoading || orders.length === 0;
+
   return (
     <div style={pageStyle}>
       <div style={headerStyle}>
@@ -111,9 +114,29 @@ export default function OrdersPage() {
           <p style={subtitleStyle}>Track and manage customer orders.</p>
         </div>
 
-        <button style={addButtonStyle} onClick={() => setIsCreateOpen(true)}>
-          New Order
-        </button>
+        <div style={headerActionsStyle}>
+          <button
+            type="button"
+            style={exportDisabled ? { ...exportButtonStyle, ...disabledStyle } : exportButtonStyle}
+            disabled={exportDisabled}
+            onClick={() => exportOrdersCsv(orders)}
+            title="One row per order, for the orders currently shown (respects filters)"
+          >
+            ↓ Orders CSV ({orders.length})
+          </button>
+          <button
+            type="button"
+            style={exportDisabled ? { ...exportButtonStyle, ...disabledStyle } : exportButtonStyle}
+            disabled={exportDisabled}
+            onClick={() => exportOrderItemsCsv(orders)}
+            title="One row per item sold, for the orders currently shown (respects filters)"
+          >
+            ↓ Items CSV
+          </button>
+          <button style={addButtonStyle} onClick={() => setIsCreateOpen(true)}>
+            New Order
+          </button>
+        </div>
       </div>
 
       <form onSubmit={handleApplyFilters} style={filterBarStyle}>
@@ -433,6 +456,29 @@ const viewButtonStyle: React.CSSProperties = {
 const actionsCellStyle: React.CSSProperties = {
   display: 'flex',
   gap: 8,
+};
+
+const headerActionsStyle: React.CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 8,
+  justifyContent: 'flex-end',
+};
+
+const exportButtonStyle: React.CSSProperties = {
+  background: '#fff',
+  color: '#1C4A1C',
+  border: '1px solid #1C4A1C',
+  borderRadius: 8,
+  padding: '10px 14px',
+  cursor: 'pointer',
+  fontWeight: 600,
+  whiteSpace: 'nowrap',
+};
+
+const disabledStyle: React.CSSProperties = {
+  opacity: 0.5,
+  cursor: 'not-allowed',
 };
 
 const addButtonStyle: React.CSSProperties = {
