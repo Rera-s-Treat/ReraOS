@@ -24,3 +24,23 @@ export const markNotificationRead = async (id: string): Promise<AppNotification>
 export const markAllNotificationsRead = async (): Promise<void> => {
   await axiosInstance.patch('/notifications/read-all');
 };
+
+export interface TestSmsResult {
+  success: boolean;
+  error: string | null;
+  providerResponse: string | null;
+  recipient: string;
+  sender: string;
+  apiKeyConfigured: boolean;
+}
+
+export const sendTestSms = async (
+  phone: string,
+  message?: string,
+): Promise<TestSmsResult> => {
+  const response = await axiosInstance.post('/notifications/test-sms', {
+    phone,
+    message: message || undefined,
+  });
+  return response.data;
+};
