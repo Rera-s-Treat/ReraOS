@@ -167,7 +167,7 @@ export class NotificationsService {
   private async sendSmsRaw(
     to: string,
     message: string,
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<{ success: boolean; error?: string; providerResponse?: string }> {
     if (!this.isSmsConfigured) {
       this.logger.warn(
         `[SMS skipped - no iBulky API key configured] To: ${to} | Message: ${message}`,
@@ -199,9 +199,13 @@ export class NotificationsService {
         this.logger.error(
           `SMS send to ${to} failed: ${response.status} ${responseBody} (${reason})`,
         );
-        return { success: false, error: `${responseBody}: ${reason}` };
+        return {
+          success: false,
+          error: `${responseBody}: ${reason}`,
+          providerResponse: responseBody,
+        };
       }
-      return { success: true };
+      return { success: true, providerResponse: responseBody };
     } catch (error) {
       const message = (error as Error).message || String(error);
       this.logger.error(`Failed to send SMS to ${to}: ${message}`);
@@ -216,6 +220,28 @@ export class NotificationsService {
 
   async sendSms(to: string, message: string): Promise<void> {
     await this.sendSmsRaw(to, message);
+  }
+
+  /**
+   * Admin diagnostic: sends one SMS straight through the provider and
+   * returns what it said, so SMS setup can be checked from the dashboard.
+   */
+  async sendTestSms(to: string, message?: string) {
+    const recipient = normalizeNigerianPhoneNumber(to);
+    const sender = process.env.IBULKY_SMS_SENDER || IBULKY_DEFAULT_SENDER;
+    const result = await this.sendSmsRaw(
+      to,
+      message?.trim() || "Test message from Rera's Treat. If you got this, SMS is working.",
+    );
+
+    return {
+      success: result.success,
+      error: result.error ?? null,
+      providerResponse: result.providerResponse ?? null,
+      recipient,
+      sender,
+      apiKeyConfigured: this.isSmsConfigured,
+    };
   }
 
   /**

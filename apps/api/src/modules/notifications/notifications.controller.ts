@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { NotificationAudience, NotificationChannel } from '@prisma/client';
 
@@ -6,13 +6,27 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { RolesGuard } from '../../auth/roles.guard';
 import { PrismaService } from '../../common/prisma.service';
+import { SendTestSmsDto } from './dto/send-test-sms.dto';
+import { NotificationsService } from './notifications.service';
 
 @ApiTags('Notifications')
 @ApiBearerAuth('bearer')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('notifications')
 export class NotificationsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
+
+  @Post('test-sms')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @ApiOperation({
+    summary: 'Send a test SMS through the configured provider and return its response',
+  })
+  sendTestSms(@Body() body: SendTestSmsDto) {
+    return this.notificationsService.sendTestSms(body.phone, body.message);
+  }
 
   @Get()
   @Roles('SUPER_ADMIN', 'ADMIN', 'STAFF')

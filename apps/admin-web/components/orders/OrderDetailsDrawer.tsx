@@ -20,6 +20,32 @@ import {
 
 const PUBLIC_SITE_ORIGIN = 'https://rerastreat.com.ng';
 
+const COMPLETED_FULFILLMENT = ['PICKED_UP', 'SERVED', 'DELIVERED'];
+
+// wa.me needs the number in international format, digits only.
+function toWhatsAppNumber(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('234')) return digits;
+  if (digits.startsWith('0')) return `234${digits.slice(1)}`;
+  return digits;
+}
+
+// Opens WhatsApp (app or web) on staff's own device with the message typed
+// in; staff tap Send. No WhatsApp API needed.
+function buildRatingRequestWhatsAppUrl(order: Order): string {
+  const reviewUrl = `${PUBLIC_SITE_ORIGIN}/review?order=${order.id}`;
+  const text = [
+    `Hi ${order.customerName} 💛`,
+    '',
+    `Thanks for your order #${order.orderNumber} from Rera's Treat!`,
+    "How was it? We'd love a quick rating, it takes less than a minute:",
+    reviewUrl,
+    '',
+    "— Rera's Treat",
+  ].join('\n');
+  return `https://wa.me/${toWhatsAppNumber(order.customerPhone)}?text=${encodeURIComponent(text)}`;
+}
+
 interface OrderDetailsDrawerProps {
   isOpen: boolean;
   order: Order | null;
@@ -120,6 +146,7 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
   const amountPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
   const balanceDue = Math.max(Number(order.totalAmount) - amountPaid, 0);
   const invoiceUrl = `${PUBLIC_SITE_ORIGIN}/invoice?order=${order.id}`;
+  const isOrderCompleted = COMPLETED_FULFILLMENT.includes(order.fulfillmentStatus);
 
   const locationDetails =
     order.orderType === 'DINE_IN'
@@ -333,6 +360,25 @@ export const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({
               }
             >
               {isSendingAction === 'ready' ? 'Sending...' : 'Send Order-Ready'}
+            </button>
+            <button
+              type="button"
+              style={
+                isOrderCompleted
+                  ? whatsAppBtnStyle
+                  : { ...whatsAppBtnStyle, opacity: 0.5, cursor: 'not-allowed' }
+              }
+              disabled={!isOrderCompleted}
+              title={
+                isOrderCompleted
+                  ? 'Opens WhatsApp with the rating request typed in - just tap Send'
+                  : 'Available once the order is picked up, served or delivered'
+              }
+              onClick={() =>
+                window.open(buildRatingRequestWhatsAppUrl(order), '_blank', 'noopener')
+              }
+            >
+              Rating request via WhatsApp
             </button>
           </div>
 
@@ -549,6 +595,13 @@ const actionBtnStyle: React.CSSProperties = {
   border: '1px solid #d1d5db',
   borderRadius: 8,
   cursor: 'pointer',
+};
+
+const whatsAppBtnStyle: React.CSSProperties = {
+  ...actionBtnStyle,
+  background: '#25D366',
+  color: '#fff',
+  border: '1px solid #1DA851',
 };
 
 const textareaStyle: React.CSSProperties = {
