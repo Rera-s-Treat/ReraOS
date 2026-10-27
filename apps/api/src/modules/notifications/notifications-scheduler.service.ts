@@ -158,8 +158,19 @@ export class NotificationsSchedulerService {
     });
   }
 
-  /** Every hour: flag orders whose payment has been pending too long. */
-  @Cron('0 * * * *')
+  /**
+   * Hourly during opening hours (Lagos time): run both order checks in one
+   * go. Each run wakes the database, and on a scale-to-zero database
+   * (Neon free) every wake costs compute time - so one combined run, and
+   * none overnight, instead of two separate runs every hour around the clock.
+   */
+  @Cron('0 8-22 * * *', { timeZone: 'Africa/Lagos' })
+  async runHourlyOrderChecks(): Promise<void> {
+    await this.checkStuckPendingOrders();
+    await this.checkReadyNotPickedUp();
+  }
+
+  /** Flags orders whose payment has been pending too long. */
   async checkStuckPendingOrders(): Promise<void> {
     const cutoff = hoursAgo(STUCK_PENDING_HOURS);
 
@@ -202,8 +213,7 @@ export class NotificationsSchedulerService {
     }
   }
 
-  /** Every hour: flag pickup orders that are ready but not yet collected. */
-  @Cron('30 * * * *')
+  /** Flags pickup orders that are ready but not yet collected. */
   async checkReadyNotPickedUp(): Promise<void> {
     const cutoff = hoursAgo(READY_NOT_PICKED_UP_HOURS);
 
