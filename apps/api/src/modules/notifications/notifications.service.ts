@@ -95,6 +95,20 @@ function summarizeItems(items: NotifiableOrder['items']): string {
     .join(', ');
 }
 
+/**
+ * Turns an iBulky failure into one readable line. Their errors are bare codes
+ * (e.g. "2508"); when their gateway itself fails, Cloudflare returns a whole
+ * HTML error page, so only its <title> is kept.
+ */
+function describeIbulkyFailure(status: number, body: string): string {
+  if (IBULKY_ERROR_CODES[body]) return `${body}: ${IBULKY_ERROR_CODES[body]}`;
+  if (/<html/i.test(body)) {
+    const title = body.match(/<title>([^<]*)<\/title>/i)?.[1]?.trim();
+    return `iBulky's server returned HTTP ${status}${title ? ` (${title})` : ''}`;
+  }
+  return `HTTP ${status}: ${body.slice(0, 120) || 'empty response'}`;
+}
+
 function isCashOrder(order: NotifiableOrder): boolean {
   return order.paymentMethod === 'CASH';
 }
@@ -177,17 +191,29 @@ export class NotificationsService {
 
     // GSM 03.38 can't carry characters like ₦ or ×, so fall back to unicode.
     const msgtype = /[^\x00-\x7F]/.test(message) ? 'unicode' : 'text';
-    const params = new URLSearchParams({
+    // Built by hand rather than with URLSearchParams: that encodes spaces as
+    // "+", and iBulky's gateway answered such requests with a Cloudflare 520
+    // while the same request with "%20" (as a browser sends it) succeeded.
+    const query = Object.entries({
       apikey: process.env.IBULKY_API_KEY!,
       sender: process.env.IBULKY_SMS_SENDER || IBULKY_DEFAULT_SENDER,
       recipient: normalizeNigerianPhoneNumber(to),
       message,
       msgtype,
       delivery: 'no',
-    });
+    })
+      .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+      .join('&');
 
     try {
-      const response = await fetch(`${IBULKY_SMS_API_URL}?${params.toString()}`);
+      const response = await fetch(`${IBULKY_SMS_API_URL}?${query}`, {
+        headers: {
+          // Some gateways behind Cloudflare reject requests with no browser-like
+          // user agent; send one so ours looks like an ordinary client.
+          'User-Agent': 'Mozilla/5.0 (compatible; ReraOS/1.0; +https://rerastreat.com.ng)',
+          Accept: 'text/plain, text/html;q=0.9, */*;q=0.8',
+        },
+      });
       const responseBody = (await response.text()).trim();
 
       // iBulky always answers 200; success is "SENT|<MSG_ID>" (or "2501|..."
@@ -195,14 +221,12 @@ export class NotificationsService {
       const succeeded =
         response.ok && (responseBody.startsWith('SENT|') || responseBody.startsWith('2501|'));
       if (!succeeded) {
-        const reason = IBULKY_ERROR_CODES[responseBody] ?? 'Unexpected response';
-        this.logger.error(
-          `SMS send to ${to} failed: ${response.status} ${responseBody} (${reason})`,
-        );
+        const reason = describeIbulkyFailure(response.status, responseBody);
+        this.logger.error(`SMS send to ${to} failed: ${reason}`);
         return {
           success: false,
-          error: `${responseBody}: ${reason}`,
-          providerResponse: responseBody,
+          error: reason,
+          providerResponse: responseBody.slice(0, 200),
         };
       }
       return { success: true, providerResponse: responseBody };
